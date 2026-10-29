@@ -20,7 +20,7 @@ export const Route = createFileRoute("/admin")({
 function Admin() {
   const { projects } = useDemo();
   const [in_, setIn] = useState(false);
-  const [sel, setSel] = useState(projects[0].code);
+  const [sel, setSel] = useState(projects[0]?.code ?? "");
   const project = projects.find((p) => p.code === sel)!;
 
   if (!in_)

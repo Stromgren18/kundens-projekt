@@ -6,7 +6,7 @@ export type Ticket = {
   body: string;
   images: string[];
   notify: boolean;
-  email?: string;
+  email?: string | undefined;
   done: boolean;
   createdAt: string;
 };
