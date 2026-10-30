@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useDemo, type Project } from "@/lib/demo-store";
+import { useDemo, STATUSES, type Project, type Status } from "@/lib/demo-store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -64,7 +64,7 @@ function ProjectView({ project, onLeave }: { project: Project; onLeave: () => vo
   const [images, setImages] = useState<string[]>([]);
   const [notify, setNotify] = useState(false);
   const [email, setEmail] = useState("");
-  const open = project.tickets.filter((t) => !t.done).length;
+  const open = project.tickets.filter((t) => t.status !== "Färdigt").length;
 
   return (
     <div className="min-h-screen">
@@ -77,8 +77,8 @@ function ProjectView({ project, onLeave }: { project: Project; onLeave: () => vo
           <p className="mt-6 opacity-70">{project.client}</p>
           <h1 className="text-4xl md:text-5xl">{project.name}</h1>
           <div className="mt-6 flex gap-3 text-sm">
-            <span className="rounded-xl bg-graphite-foreground/10 px-4 py-2"><b className="text-lg">{open}</b> väntar</span>
-            <span className="rounded-xl bg-graphite-foreground/10 px-4 py-2"><b className="text-lg">{project.tickets.length - open}</b> hanterade</span>
+            <span className="rounded-xl bg-graphite-foreground/10 px-4 py-2"><b className="text-lg">{open}</b> pågående</span>
+            <span className="rounded-xl bg-graphite-foreground/10 px-4 py-2"><b className="text-lg">{project.tickets.length - open}</b> färdiga</span>
           </div>
         </div>
       </header>
@@ -118,28 +118,38 @@ function ProjectView({ project, onLeave }: { project: Project; onLeave: () => vo
   );
 }
 
+export const statusStyle: Record<Status, { badge: string; border: string }> = {
+  "Ej läst": { badge: "bg-primary text-primary-foreground", border: "border-primary" },
+  Bekräftat: { badge: "bg-warning text-warning-foreground", border: "border-warning-foreground" },
+  Påbörjat: { badge: "bg-info text-info-foreground", border: "border-info-foreground" },
+  Färdigt: { badge: "bg-success text-success-foreground", border: "border-success-foreground" },
+};
+
 export function TicketList({ project, admin }: { project: Project; admin?: boolean }) {
-  const { toggleDone } = useDemo();
+  const { setStatus } = useDemo();
   if (project.tickets.length === 0) return <p className="mt-4 text-muted-foreground">Inga ärenden ännu.</p>;
   return (
     <ul className="mt-4 space-y-4">
       {project.tickets.map((t) => (
-        <li key={t.id} className={`rounded-2xl border-l-4 bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md animate-in fade-in slide-in-from-bottom-2 ${t.done ? "border-success-foreground opacity-75" : "border-primary"}`}>
-          <div className="flex items-start justify-between gap-4">
+        <li key={t.id} className={`rounded-2xl border-l-4 bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md animate-in fade-in slide-in-from-bottom-2 ${statusStyle[t.status].border} ${t.status === "Färdigt" ? "opacity-75" : ""}`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-lg">{t.title}</h3>
               <p className="text-sm text-muted-foreground">{t.createdAt}{t.notify && ` · meddelar ${t.email}`}</p>
             </div>
-            {admin ? (
-              <button onClick={() => toggleDone(project.code, t.id)} className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition hover:brightness-110 ${t.done ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"}`}>
-                {t.done ? "Ångra" : "✓ Markera hanterat"}
-              </button>
-            ) : (
-              <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${t.done ? "bg-success text-success-foreground" : "bg-accent text-accent-foreground"}`}>{t.done ? "✓ Hanterat" : "● Väntar"}</span>
-            )}
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusStyle[t.status].badge}`}>{t.status}</span>
           </div>
           <p className="mt-3 whitespace-pre-wrap">{t.body}</p>
           {t.images.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{t.images.map((s) => <a key={s} href={s} target="_blank" rel="noreferrer"><img src={s} alt="" className="h-24 w-24 rounded-lg object-cover transition hover:scale-105" /></a>)}</div>}
+          {admin && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {STATUSES.map((s) => (
+                <button key={s} onClick={() => setStatus(project.code, t.id, s)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition hover:brightness-105 ${t.status === s ? statusStyle[s].badge + " ring-2 ring-offset-1 ring-foreground/20" : "bg-secondary text-secondary-foreground"}`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
         </li>
       ))}
     </ul>
