@@ -137,6 +137,10 @@
   --color-graphite-foreground: var(--graphite-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --font-display: "Archivo Black", sans-serif;
   --font-sans: "Hind", sans-serif;
 }
@@ -145,6 +149,10 @@
   --graphite-foreground: oklch(0.97 0 0);
   --success: oklch(0.92 0.06 150);
   --success-foreground: oklch(0.38 0.1 150);
+  --warning: oklch(0.93 0.09 85);
+  --warning-foreground: oklch(0.45 0.11 70);
+  --info: oklch(0.92 0.05 240);
+  --info-foreground: oklch(0.42 0.12 250);
   --gradient-hero: radial-gradient(circle at 80% 10%, oklch(0.48 0.19 28 / 0.55), transparent 55%), linear-gradient(160deg, oklch(0.22 0 0), oklch(0.16 0 0));
   --shadow-pop: 0 18px 40px -18px oklch(0.48 0.19 28 / 0.6);
 }

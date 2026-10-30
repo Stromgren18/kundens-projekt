@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useDemo } from "@/lib/demo-store";
-import { TicketList } from "./index";
+import { useDemo, unreadCount, STATUSES, type Status } from "@/lib/demo-store";
+import { TicketList, statusStyle } from "./index";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -21,6 +21,7 @@ function Admin() {
   const { projects } = useDemo();
   const [in_, setIn] = useState(false);
   const [sel, setSel] = useState(projects[0]?.code ?? "");
+  const [filter, setFilter] = useState<"Alla" | Status>("Alla");
   const project = projects.find((p) => p.code === sel)!;
 
   if (!in_)
@@ -45,14 +46,35 @@ function Admin() {
       </div>
       </header>
       <div className="mx-auto max-w-4xl px-6 pb-16">
-      <div className="mt-6 flex gap-2">
-        {projects.map((p) => (
-          <button key={p.code} onClick={() => setSel(p.code)} className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${p.code === sel ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
-            {p.client} ({p.tickets.filter((t) => !t.done).length})
-          </button>
-        ))}
-      </div>
-      <TicketList project={project} admin />
+        <h2 className="mt-8 text-2xl">Alla projekt</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {projects.map((p) => {
+            const unread = unreadCount(p);
+            return (
+              <button key={p.code} onClick={() => setSel(p.code)} className={`relative rounded-2xl bg-card p-5 text-left transition hover:-translate-y-0.5 ${p.code === sel ? "ring-2 ring-primary" : "ring-1 ring-border"}`} style={{ boxShadow: p.code === sel ? "var(--shadow-pop)" : undefined }}>
+                {unread > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-primary px-2 text-sm font-bold text-primary-foreground animate-bounce" title="Olästa ärenden">{unread}</span>
+                )}
+                <p className="text-xs font-semibold uppercase tracking-widest text-primary">{p.code}</p>
+                <h3 className="mt-1 text-lg">{p.client}</h3>
+                <p className="text-sm text-muted-foreground">{p.name}</p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {STATUSES.map((s) => {
+                    const n = p.tickets.filter((t) => t.status === s).length;
+                    return <span key={s} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle[s].badge}`}>{s}: {n}</span>;
+                  })}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <h2 className="mt-10 text-2xl">{project.client} – ärenden</h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(["Alla", ...STATUSES] as const).map((f) => (
+            <button key={f} onClick={() => setFilter(f)} className={`rounded-full px-3 py-1 text-xs font-semibold ${filter === f ? "bg-graphite text-graphite-foreground" : "bg-secondary text-secondary-foreground"}`}>{f}</button>
+          ))}
+        </div>
+        <TicketList project={{ ...project, tickets: filter === "Alla" ? project.tickets : project.tickets.filter((t) => t.status === filter) }} admin />
       </div>
     </main>
   );
