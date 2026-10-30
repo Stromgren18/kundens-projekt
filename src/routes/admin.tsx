@@ -25,31 +25,35 @@ function Admin() {
 
   if (!in_)
     return (
-      <main className="min-h-screen flex items-center justify-center px-4">
-        <form onSubmit={(e) => { e.preventDefault(); setIn(true); }} className="w-full max-w-sm space-y-3">
+      <main className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--gradient-hero)" }}>
+        <form onSubmit={(e) => { e.preventDefault(); setIn(true); }} className="w-full max-w-sm space-y-3 rounded-3xl bg-card p-7" style={{ boxShadow: "var(--shadow-pop)" }}>
           <h1 className="text-2xl font-bold">Admininloggning</h1>
-          <input placeholder="E-post" className="w-full rounded-md border border-input bg-background px-3 py-2" />
-          <input type="password" placeholder="Lösenord" className="w-full rounded-md border border-input bg-background px-3 py-2" />
-          <button className="w-full rounded-md bg-primary px-4 py-2 font-semibold text-primary-foreground">Logga in (demo)</button>
+          <input placeholder="E-post" className="w-full rounded-xl border-2 border-input outline-none focus:border-primary bg-background px-3 py-2" />
+          <input type="password" placeholder="Lösenord" className="w-full rounded-xl border-2 border-input outline-none focus:border-primary bg-background px-3 py-2" />
+          <button className="w-full rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground">Logga in (demo)</button>
           <Link to="/" className="block text-center text-sm underline text-muted-foreground">Tillbaka</Link>
         </form>
       </main>
     );
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Admin</h1>
-        <button onClick={() => setIn(false)} className="text-sm underline text-muted-foreground">Logga ut</button>
+    <main className="min-h-screen">
+      <header className="text-graphite-foreground" style={{ background: "var(--gradient-hero)" }}>
+      <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-10">
+        <h1 className="text-4xl">Admin<span className="text-primary">.</span></h1>
+        <button onClick={() => setIn(false)} className="text-sm underline opacity-70">Logga ut</button>
       </div>
+      </header>
+      <div className="mx-auto max-w-4xl px-6 pb-16">
       <div className="mt-6 flex gap-2">
         {projects.map((p) => (
-          <button key={p.code} onClick={() => setSel(p.code)} className={`rounded-md px-4 py-2 text-sm font-semibold ${p.code === sel ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
+          <button key={p.code} onClick={() => setSel(p.code)} className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${p.code === sel ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
             {p.client} ({p.tickets.filter((t) => !t.done).length})
           </button>
         ))}
       </div>
       <TicketList project={project} admin />
+      </div>
     </main>
   );
 }

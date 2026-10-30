@@ -63,25 +63,25 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.15 0 0);
+  --background: oklch(0.975 0.006 60);
+  --foreground: oklch(0.22 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.7 0.2 45);
-  --primary-foreground: oklch(0.15 0 0);
+  --primary: oklch(0.48 0.19 28);
+  --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.968 0.007 247.896);
   --secondary-foreground: oklch(0.208 0.042 265.755);
   --muted: oklch(0.968 0.007 247.896);
   --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  --accent: oklch(0.93 0.04 28);
+  --accent-foreground: oklch(0.42 0.17 28);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: oklch(0.929 0.013 255.508);
   --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --ring: oklch(0.48 0.19 28);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -132,7 +132,24 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+@theme inline {
+  --color-graphite: var(--graphite);
+  --color-graphite-foreground: var(--graphite-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --font-display: "Archivo Black", sans-serif;
+  --font-sans: "Hind", sans-serif;
+}
+:root {
+  --graphite: oklch(0.22 0 0);
+  --graphite-foreground: oklch(0.97 0 0);
+  --success: oklch(0.92 0.06 150);
+  --success-foreground: oklch(0.38 0.1 150);
+  --gradient-hero: radial-gradient(circle at 80% 10%, oklch(0.48 0.19 28 / 0.55), transparent 55%), linear-gradient(160deg, oklch(0.22 0 0), oklch(0.16 0 0));
+  --shadow-pop: 0 18px 40px -18px oklch(0.48 0.19 28 / 0.6);
+}
 @layer base {
+  h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; }
   * {
     border-color: var(--color-border);
   }
