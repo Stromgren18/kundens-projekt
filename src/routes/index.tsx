@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useDemo, STATUSES, type Project, type Status } from "@/lib/demo-store";
+import { useDemo, STATUSES, resolveCode, type Project, type Status, type Ticket } from "@/lib/demo-store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,16 +16,16 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const field = "w-full rounded-xl border-2 border-input bg-background px-4 py-3 outline-none transition focus:border-primary";
+export const field = "w-full rounded-xl border-2 border-input bg-background px-4 py-3 outline-none transition focus:border-primary";
 
 function Index() {
   const { projects } = useDemo();
   const [code, setCode] = useState("");
-  const [active, setActive] = useState<string | null>(null);
+  const [access, setAccess] = useState<{ code: string; subIds: string[] } | null>(null);
   const [err, setErr] = useState("");
-  const project = projects.find((p) => p.code === active);
+  const project = projects.find((p) => p.code === access?.code);
 
-  if (project) return <ProjectView project={project} onLeave={() => setActive(null)} />;
+  if (project && access) return <ProjectView project={project} subIds={access.subIds} onLeave={() => setAccess(null)} />;
 
   return (
     <main className="relative min-h-screen overflow-hidden text-graphite-foreground" style={{ background: "var(--gradient-hero)" }}>
@@ -41,15 +41,15 @@ function Index() {
           style={{ boxShadow: "var(--shadow-pop)" }}
           onSubmit={(e) => {
             e.preventDefault();
-            const c = code.trim().toUpperCase();
-            if (projects.some((p) => p.code === c)) { setActive(c); setErr(""); } else setErr("Okänd projektkod – kontrollera och försök igen.");
+            const r = resolveCode(projects, code);
+            if (r) { setAccess({ code: r.project.code, subIds: r.subIds }); setErr(""); } else setErr("Okänd projektkod – kontrollera och försök igen.");
           }}
         >
           <h2 className="text-2xl">Öppna ditt projekt</h2>
           <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="PROJEKTKOD" className={`${field} mt-5 text-center text-lg font-semibold tracking-[0.3em] uppercase`} />
           {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
           <button className="mt-4 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110">Öppna projekt →</button>
-          <p className="mt-4 text-center text-xs text-muted-foreground">Demokoder: NORR-2026 · FJALL-42</p>
+          <p className="mt-4 text-center text-xs text-muted-foreground">Huvudkod: NORR-ALL · Underkod: NORR-WEB, NORR-DESIGN, FJALL-SHOP</p>
         </form>
       </div>
       <Link to="/admin" className="absolute bottom-5 right-6 text-sm opacity-60 underline hover:opacity-100">Admin</Link>
@@ -57,63 +57,76 @@ function Index() {
   );
 }
 
-function ProjectView({ project, onLeave }: { project: Project; onLeave: () => void }) {
+function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: string[]; onLeave: () => void }) {
   const { addTicket } = useDemo();
+  const subs = project.subs.filter((s) => subIds.includes(s.id));
+  const [subId, setSubId] = useState(subs[0]?.id ?? "");
+  const sub = subs.find((s) => s.id === subId) ?? subs[0];
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [notify, setNotify] = useState(false);
   const [email, setEmail] = useState("");
-  const open = project.tickets.filter((t) => t.status !== "Färdigt").length;
+  const tickets = sub?.tickets ?? [];
+  const open = tickets.filter((t) => t.status !== "Färdigt").length;
 
   return (
     <div className="min-h-screen">
       <header className="text-graphite-foreground" style={{ background: "var(--gradient-hero)" }}>
         <div className="mx-auto max-w-4xl px-6 py-10">
           <div className="flex items-center justify-between">
-            <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-widest text-primary-foreground">{project.code}</span>
+            <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-widest text-primary-foreground">{project.name}</span>
             <button onClick={onLeave} className="text-sm opacity-70 underline hover:opacity-100">Byt projekt</button>
           </div>
           <p className="mt-6 opacity-70">{project.client}</p>
-          <h1 className="text-4xl md:text-5xl">{project.name}</h1>
+          <h1 className="text-4xl md:text-5xl">{sub?.name ?? "Inga underprojekt ännu"}</h1>
+          {subs.length > 1 && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {subs.map((s) => (
+                <button key={s.id} onClick={() => setSubId(s.id)} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${s.id === sub?.id ? "bg-primary text-primary-foreground" : "bg-graphite-foreground/10 hover:bg-graphite-foreground/20"}`}>{s.name}</button>
+              ))}
+            </div>
+          )}
           <div className="mt-6 flex gap-3 text-sm">
             <span className="rounded-xl bg-graphite-foreground/10 px-4 py-2"><b className="text-lg">{open}</b> pågående</span>
-            <span className="rounded-xl bg-graphite-foreground/10 px-4 py-2"><b className="text-lg">{project.tickets.length - open}</b> färdiga</span>
+            <span className="rounded-xl bg-graphite-foreground/10 px-4 py-2"><b className="text-lg">{tickets.length - open}</b> färdiga</span>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto -mt-6 max-w-4xl px-6 pb-16">
-        <form
-          className="space-y-3 rounded-3xl border-t-4 border-primary bg-card p-6"
-          style={{ boxShadow: "var(--shadow-pop)" }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!title.trim() || !body.trim() || (notify && !email.includes("@"))) return;
-            addTicket(project.code, { title, body, images, notify, email: notify ? email : undefined });
-            setTitle(""); setBody(""); setImages([]); setNotify(false); setEmail("");
-          }}
-        >
-          <h2 className="text-2xl">Nytt ärende</h2>
-          <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Rubrik" className={field} />
-          <textarea required value={body} onChange={(e) => setBody(e.target.value)} placeholder="Beskriv vad du vill ha gjort" rows={4} className={field} />
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-accent/40 px-4 py-6 text-sm text-accent-foreground transition hover:bg-accent">
-            <span className="text-2xl">📎</span>
-            <span className="font-semibold">Bifoga bilder</span>
-            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setImages(Array.from(e.target.files ?? []).map((f) => URL.createObjectURL(f)))} />
-          </label>
-          {images.length > 0 && <div className="flex flex-wrap gap-2">{images.map((s) => <img key={s} src={s} alt="" className="h-20 w-20 rounded-lg object-cover ring-2 ring-primary/30" />)}</div>}
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input type="checkbox" className="h-4 w-4 accent-primary" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
-            Meddela mig när ärendet är utfört
-          </label>
-          {notify && <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Din e-post" className={`${field} animate-in fade-in slide-in-from-top-2`} />}
-          <button className="rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110">Skicka ärende</button>
-        </form>
+      {sub && (
+        <main className="mx-auto -mt-6 max-w-4xl px-6 pb-16">
+          <form
+            className="space-y-3 rounded-3xl border-t-4 border-primary bg-card p-6"
+            style={{ boxShadow: "var(--shadow-pop)" }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!title.trim() || !body.trim() || (notify && !email.includes("@"))) return;
+              addTicket(project.code, sub.id, { title, body, images, notify, email: notify ? email : undefined });
+              setTitle(""); setBody(""); setImages([]); setNotify(false); setEmail("");
+            }}
+          >
+            <h2 className="text-2xl">Nytt ärende i {sub.name}</h2>
+            <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Rubrik" className={field} />
+            <textarea required value={body} onChange={(e) => setBody(e.target.value)} placeholder="Beskriv vad du vill ha gjort" rows={4} className={field} />
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-accent/40 px-4 py-6 text-sm text-accent-foreground transition hover:bg-accent">
+              <span className="text-2xl">📎</span>
+              <span className="font-semibold">Bifoga bilder</span>
+              <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setImages(Array.from(e.target.files ?? []).map((f) => URL.createObjectURL(f)))} />
+            </label>
+            {images.length > 0 && <div className="flex flex-wrap gap-2">{images.map((s) => <img key={s} src={s} alt="" className="h-20 w-20 rounded-lg object-cover ring-2 ring-primary/30" />)}</div>}
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" className="h-4 w-4 accent-primary" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+              Meddela mig när ärendet är utfört
+            </label>
+            {notify && <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Din e-post" className={`${field} animate-in fade-in slide-in-from-top-2`} />}
+            <button className="rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110">Skicka ärende</button>
+          </form>
 
-        <h2 className="mt-12 text-2xl">Dina ärenden</h2>
-        <TicketList project={project} />
-      </main>
+          <h2 className="mt-12 text-2xl">Dina ärenden</h2>
+          <TicketList tickets={tickets} />
+        </main>
+      )}
     </div>
   );
 }
@@ -125,12 +138,11 @@ export const statusStyle: Record<Status, { badge: string; border: string }> = {
   Färdigt: { badge: "bg-success text-success-foreground", border: "border-success-foreground" },
 };
 
-export function TicketList({ project, admin }: { project: Project; admin?: boolean }) {
-  const { setStatus } = useDemo();
-  if (project.tickets.length === 0) return <p className="mt-4 text-muted-foreground">Inga ärenden ännu.</p>;
+export function TicketList({ tickets, onStatus }: { tickets: Ticket[]; onStatus?: (id: string, s: Status) => void }) {
+  if (tickets.length === 0) return <p className="mt-4 text-muted-foreground">Inga ärenden ännu.</p>;
   return (
     <ul className="mt-4 space-y-4">
-      {project.tickets.map((t) => (
+      {tickets.map((t) => (
         <li key={t.id} className={`rounded-2xl border-l-4 bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md animate-in fade-in slide-in-from-bottom-2 ${statusStyle[t.status].border} ${t.status === "Färdigt" ? "opacity-75" : ""}`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -141,10 +153,10 @@ export function TicketList({ project, admin }: { project: Project; admin?: boole
           </div>
           <p className="mt-3 whitespace-pre-wrap">{t.body}</p>
           {t.images.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{t.images.map((s) => <a key={s} href={s} target="_blank" rel="noreferrer"><img src={s} alt="" className="h-24 w-24 rounded-lg object-cover transition hover:scale-105" /></a>)}</div>}
-          {admin && (
+          {onStatus && (
             <div className="mt-4 flex flex-wrap gap-2">
               {STATUSES.map((s) => (
-                <button key={s} onClick={() => setStatus(project.code, t.id, s)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition hover:brightness-105 ${t.status === s ? statusStyle[s].badge + " ring-2 ring-offset-1 ring-foreground/20" : "bg-secondary text-secondary-foreground"}`}>
+                <button key={s} onClick={() => onStatus(t.id, s)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition hover:brightness-105 ${t.status === s ? statusStyle[s].badge + " ring-2 ring-offset-1 ring-foreground/20" : "bg-secondary text-secondary-foreground"}`}>
                   {s}
                 </button>
               ))}
