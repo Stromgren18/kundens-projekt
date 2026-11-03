@@ -15,14 +15,14 @@ type Row = Record<string, unknown>;
 
 function toTicket(t: Row): Ticket {
   return {
-    id: str(t.id),
-    title: str(t.title),
-    body: str(t.body),
-    images: Array.isArray(t.images) ? t.images.map((s) => str(s)) : [],
-    notify: t.notify === true,
-    email: typeof t.email === "string" ? t.email : undefined,
-    status: statusOk(t.status) ? t.status : "Ej läst",
-    createdAt: str(t.created_at).slice(0, 10),
+    id: str(t["id"]),
+    title: str(t["title"]),
+    body: str(t["body"]),
+    images: Array.isArray(t["images"]) ? t["images"].map((s) => str(s)) : [],
+    notify: t["notify"] === true,
+    email: typeof t["email"] === "string" ? t["email"] : undefined,
+    status: statusOk(t["status"]) ? t["status"] : "Ej läst",
+    createdAt: str(t["created_at"]).slice(0, 10),
   };
 }
 
@@ -41,16 +41,16 @@ export const loadProjects = createServerFn({ method: "GET" })
     const codes = (c.data ?? []) as Row[];
     const tickets = (t.data ?? []) as Row[];
     return ((p.data ?? []) as Row[]).map((pr) => ({
-      code: str(pr.code),
-      name: str(pr.name),
-      client: str(pr.client),
+      code: str(pr["code"]),
+      name: str(pr["name"]),
+      client: str(pr["client"]),
       subs: subs
-        .filter((sb) => sb.project_id === pr.id)
+        .filter((sb) => sb["project_id"] === pr["id"])
         .map((sb) => ({
-          id: str(sb.id),
-          name: str(sb.name),
-          codes: codes.filter((cd) => cd.sub_project_id === sb.id).map((cd) => str(cd.code)),
-          tickets: tickets.filter((tk) => tk.sub_project_id === sb.id).map(toTicket),
+          id: str(sb["id"]),
+          name: str(sb["name"]),
+          codes: codes.filter((cd) => cd["sub_project_id"] === sb["id"]).map((cd) => str(cd["code"])),
+          tickets: tickets.filter((tk) => tk["sub_project_id"] === sb["id"]).map(toTicket),
         })),
     }));
   });

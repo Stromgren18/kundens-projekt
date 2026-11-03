@@ -31,7 +31,7 @@ function Admin() {
   const [ns, setNs] = useState({ name: "", code: "" });
   const [nc, setNc] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
-  useEffect(() => { if (!sel && projects.length > 0) setSel(projects[0].code); }, [projects, sel]);
+  useEffect(() => { const first = projects[0]; if (!sel && first) setSel(first.code); }, [projects, sel]);
   const project = projects.find((p) => p.code === sel);
   const sub = project?.subs.find((s) => s.id === subSel) ?? project?.subs[0];
 
