@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useDemo, unreadCount, allTickets, codeTaken, STATUSES, type Status } from "@/lib/demo-store";
 import { TicketList, statusStyle } from "./index";
 import { Overview } from "@/components/AdminOverview";
+import { useServerFn } from "@tanstack/react-start";
+import { adminSignIn, adminSetPassword } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -19,7 +21,48 @@ export const Route = createFileRoute("/admin")({
 });
 
 const inp = "rounded-xl border-2 border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary";
-const btn = "rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-110";
+const btn = "rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-60";
+
+function AdminLogin({ onIn }: { onIn: () => void }) {
+  const signIn = useServerFn(adminSignIn);
+  const setPw = useServerFn(adminSetPassword);
+  const [token, setToken] = useState("");
+  const [email, setEmail] = useState("");
+  const [pw, setPwVal] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const h = new URLSearchParams(window.location.hash.slice(1));
+    const t = h.get("access_token");
+    if (t && (h.get("type") === "invite" || h.get("type") === "recovery")) setToken(t);
+    if (h.get("error_description")) setMsg(h.get("error_description") ?? "");
+  }, []);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true); setMsg("");
+    try {
+      if (token) {
+        await setPw({ data: { accessToken: token, password: pw } });
+        window.history.replaceState(null, "", "/admin");
+      } else {
+        await signIn({ data: { email, password: pw } });
+      }
+      onIn();
+    } catch (er) { setMsg(er instanceof Error ? er.message : "Något gick fel"); }
+    finally { setBusy(false); }
+  };
+  return (
+    <main className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--gradient-hero)" }}>
+      <form onSubmit={submit} className="w-full max-w-sm space-y-3 rounded-3xl bg-card p-7" style={{ boxShadow: "var(--shadow-pop)" }}>
+        <h1 className="text-2xl font-bold">{token ? "Välj lösenord" : "Admininloggning"}</h1>
+        {!token && <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-post" className={`w-full ${inp}`} />}
+        <input type="password" required minLength={token ? 8 : 1} value={pw} onChange={(e) => setPwVal(e.target.value)} placeholder={token ? "Nytt lösenord (minst 8 tecken)" : "Lösenord"} className={`w-full ${inp}`} />
+        {msg && <p className="text-sm text-destructive">{msg}</p>}
+        <button disabled={busy} className={`w-full ${btn}`}>{busy ? "Vänta…" : token ? "Spara och logga in" : "Logga in"}</button>
+        <Link to="/" className="block text-center text-sm underline text-muted-foreground">Tillbaka</Link>
+      </form>
+    </main>
+  );
+}
 
 function Admin() {
   const { projects, setStatus, addProject, addSub, addSubCode } = useDemo();
@@ -41,18 +84,7 @@ function Admin() {
     setErr(""); return true;
   };
 
-  if (!in_)
-    return (
-      <main className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--gradient-hero)" }}>
-        <form onSubmit={(e) => { e.preventDefault(); setIn(true); }} className="w-full max-w-sm space-y-3 rounded-3xl bg-card p-7" style={{ boxShadow: "var(--shadow-pop)" }}>
-          <h1 className="text-2xl font-bold">Admininloggning</h1>
-          <input placeholder="E-post" className={`w-full ${inp}`} />
-          <input type="password" placeholder="Lösenord" className={`w-full ${inp}`} />
-          <button className={`w-full ${btn}`}>Logga in (demo)</button>
-          <Link to="/" className="block text-center text-sm underline text-muted-foreground">Tillbaka</Link>
-        </form>
-      </main>
-    );
+  if (!in_) return <AdminLogin onIn={() => setIn(true)} />;
 
   return (
     <main className="min-h-screen">
@@ -80,7 +112,7 @@ function Admin() {
           </form>
         </div>
 
-        {projects.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Laddar projekt…</p>}
+        {projects.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Inga projekt ännu – skapa ditt första ovan.</p>}
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => {
             const unread = unreadCount(p);
