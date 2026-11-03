@@ -112,7 +112,7 @@ function Admin() {
           </form>
         </div>
 
-        {projects.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Laddar projekt…</p>}
+        {projects.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Inga projekt ännu – skapa ditt första ovan.</p>}
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => {
             const unread = unreadCount(p);
