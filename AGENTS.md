@@ -11,5 +11,5 @@
 
 ## Architecture rules
 
-- All Supabase access goes through TanStack server functions in `src/lib/db.functions.ts` using the publishable-key secrets `SUPA_URL`/`SUPA_KEY`; the service-role key is never used in app code. Why: keeps credentials server-side and RLS intact for the user's external Supabase (Lovable Cloud stays disabled).
-- Ticket images are uploaded server-side to the public `ticket-images` storage bucket and stored as public URLs in `tickets.images`. Why: browser has no Supabase key; uploads must pass through the server function.
+- All Supabase access goes through TanStack server functions (`src/lib/db.functions.ts`, `src/lib/auth.functions.ts`) using `SUPA_URL`/`SUPA_KEY`. Customers reach data only via code-gated SECURITY DEFINER RPCs (`portal_load`, `portal_create_ticket`); admin functions require the admin's access token and RLS checks `has_role(auth.uid(),'admin')`. Why: project codes and customer emails must never be readable anonymously.
+- Ticket images are uploaded server-side with the service-role client only after the code is verified, into the public `ticket-images` bucket (no anon storage policies). Why: anonymous clients must not write or list storage.

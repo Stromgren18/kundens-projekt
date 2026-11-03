@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import type { Project, Status } from "./types";
 import {
   loadProjects,
+  loadByCode,
   createTicket,
   setTicketStatus,
   createProject,
@@ -21,9 +22,13 @@ export type NewTicket = {
 };
 
 type Ctx = {
+  /** Admin: all projects. Customer: only the project their code opens. */
   projects: Project[];
   loading: boolean;
   error: string;
+  isAdmin: boolean;
+  setAdminToken: (t: string | null) => Promise<void>;
+  openCode: (code: string) => Promise<{ project: Project; subIds: string[] } | null>;
   addTicket: (code: string, subId: string, t: NewTicket) => Promise<void>;
   setStatus: (code: string, subId: string, id: string, s: Status) => void;
   addProject: (name: string, code: string) => Promise<void>;
@@ -43,44 +48,65 @@ const toDataUrl = (f: File) =>
 
 export function DemoProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [token, setToken] = useState<string | null>(null);
+  const [custCode, setCustCode] = useState<string | null>(null);
 
-  const load = useServerFn(loadProjects);
+  const loadAll = useServerFn(loadProjects);
+  const loadCode = useServerFn(loadByCode);
   const runTicket = useServerFn(createTicket);
   const runStatus = useServerFn(setTicketStatus);
   const runProject = useServerFn(createProject);
   const runSub = useServerFn(createSub);
   const runCode = useServerFn(addSubCodeSrv);
 
-  const refresh = async () => {
+  const refresh = async (tok = token, code = custCode) => {
     try {
-      setProjects(await load());
+      if (tok) setProjects(await loadAll({ data: { token: tok } }));
+      else if (code) {
+        const p = await loadCode({ data: { code } });
+        setProjects(p ? [p] : []);
+      }
       setError("");
     } catch {
-      setError("Kunde inte nå databasen – kontrollera anslutningen och ladda om sidan.");
-      throw new Error("load failed");
+      setError("Kunde inte nå databasen – försök igen.");
     }
   };
 
-  useEffect(() => {
-    refresh()
-      .catch(() => {})
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const need = () => {
+    if (!token) throw new Error("Inte inloggad");
+    return token;
+  };
 
   const value: Ctx = {
     projects,
     loading,
     error,
+    isAdmin: !!token,
+    setAdminToken: async (t) => {
+      setToken(t);
+      setProjects([]);
+      if (t) { setLoading(true); await refresh(t, null); setLoading(false); }
+    },
+    openCode: async (code) => {
+      setLoading(true);
+      try {
+        const p = await loadCode({ data: { code } });
+        if (!p) return null;
+        setCustCode(code);
+        setProjects([p]);
+        return { project: p, subIds: p.subs.map((s) => s.id) };
+      } finally { setLoading(false); }
+    },
     addTicket: async (code, subId, t) => {
       const files = await Promise.all(
         t.files.map(async (f) => ({ name: f.name, dataUrl: await toDataUrl(f) })),
       );
+      const login = custCode ?? code;
       await runTicket({
         data: {
-          projectCode: code,
+          projectCode: login,
           subId,
           title: t.title,
           body: t.body,
@@ -89,24 +115,24 @@ export function DemoProvider({ children }: { children: ReactNode }) {
           files,
         },
       });
-      await refresh().catch(() => {});
+      await refresh();
     },
-    setStatus: (code, subId, id, st) => {
-      runStatus({ data: { id, status: st } })
-        .then(() => refresh().catch(() => {}))
+    setStatus: (_code, _subId, id, st) => {
+      runStatus({ data: { token: need(), id, status: st } })
+        .then(() => refresh())
         .catch(() => setError("Kunde inte uppdatera statusen."));
     },
     addProject: async (name, code) => {
-      await runProject({ data: { name, code } });
-      await refresh().catch(() => {});
+      await runProject({ data: { token: need(), name, code } });
+      await refresh();
     },
     addSub: async (code, name, subCode) => {
-      await runSub({ data: { projectCode: code, name, code: subCode } });
-      await refresh().catch(() => {});
+      await runSub({ data: { token: need(), projectCode: code, name, code: subCode } });
+      await refresh();
     },
-    addSubCode: async (code, subId, subCode) => {
-      await runCode({ data: { subId, code: subCode } });
-      await refresh().catch(() => {});
+    addSubCode: async (_code, subId, subCode) => {
+      await runCode({ data: { token: need(), subId, code: subCode } });
+      await refresh();
     },
   };
   return <C.Provider value={value}>{children}</C.Provider>;
