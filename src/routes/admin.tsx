@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useDemo, unreadCount, allTickets, codeTaken, STATUSES, type Status } from "@/lib/demo-store";
 import { TicketList, statusStyle } from "./index";
+import { Overview } from "@/components/AdminOverview";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -94,7 +95,7 @@ function Admin() {
           })}
         </div>
 
-        <Overview onOpen={(code, subId) => { setSel(code); setSubSel(subId); }} />
+        <Overview onOpen={(code: string, subId: string) => { setSel(code); setSubSel(subId); }} />
 
         {project && (
           <>
