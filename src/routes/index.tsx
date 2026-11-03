@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
 export const field = "w-full rounded-xl border-2 border-input bg-background px-4 py-3 outline-none transition focus:border-primary";
 
 function Index() {
-  const { projects } = useDemo();
+  const { projects, loading, error } = useDemo();
   const [code, setCode] = useState("");
   const [access, setAccess] = useState<{ code: string; subIds: string[] } | null>(null);
   const [err, setErr] = useState("");
@@ -48,8 +48,13 @@ function Index() {
           <h2 className="text-2xl">Öppna ditt projekt</h2>
           <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="PROJEKTKOD" className={`${field} mt-5 text-center text-lg font-semibold tracking-[0.3em] uppercase`} />
           {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
-          <button className="mt-4 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110">Öppna projekt →</button>
-          <p className="mt-4 text-center text-xs text-muted-foreground">Huvudkod: NORR-ALL · Underkod: NORR-WEB, NORR-DESIGN, FJALL-SHOP</p>
+          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          <button disabled={loading} className="mt-4 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-60">{loading ? "Laddar projekt…" : "Öppna projekt →"}</button>
+          {!loading && projects.length > 0 && (
+            <p className="mt-4 text-center text-xs text-muted-foreground">
+              Huvudkod: {projects.map((p) => p.code).join(", ")} · Underkod: {projects.flatMap((p) => p.subs.flatMap((s) => s.codes)).slice(0, 4).join(", ")}
+            </p>
+          )}
         </form>
       </div>
       <Link to="/admin" className="absolute bottom-5 right-6 text-sm opacity-60 underline hover:opacity-100">Admin</Link>
@@ -64,7 +69,10 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
   const sub = subs.find((s) => s.id === subId) ?? subs[0];
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [images, setImages] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [submitErr, setSubmitErr] = useState("");
+  const [busy, setBusy] = useState(false);
   const [notify, setNotify] = useState(false);
   const [email, setEmail] = useState("");
   const tickets = sub?.tickets ?? [];
@@ -102,8 +110,14 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
             onSubmit={(e) => {
               e.preventDefault();
               if (!title.trim() || !body.trim() || (notify && !email.includes("@"))) return;
-              addTicket(project.code, sub.id, { title, body, images, notify, email: notify ? email : undefined });
-              setTitle(""); setBody(""); setImages([]); setNotify(false); setEmail("");
+              setBusy(true);
+              setSubmitErr("");
+              addTicket(project.code, sub.id, { title, body, files, notify, email: notify ? email : undefined })
+                .then(() => {
+                  setTitle(""); setBody(""); setFiles([]); setPreviews([]); setNotify(false); setEmail("");
+                })
+                .catch((err) => setSubmitErr(err instanceof Error ? err.message : "Något gick fel – försök igen."))
+                .finally(() => setBusy(false));
             }}
           >
             <h2 className="text-2xl">Nytt ärende i {sub.name}</h2>
@@ -112,15 +126,16 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
             <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-accent/40 px-4 py-6 text-sm text-accent-foreground transition hover:bg-accent">
               <span className="text-2xl">📎</span>
               <span className="font-semibold">Bifoga bilder</span>
-              <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setImages(Array.from(e.target.files ?? []).map((f) => URL.createObjectURL(f)))} />
+              <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const fs = Array.from(e.target.files ?? []); setFiles(fs); setPreviews(fs.map((f) => URL.createObjectURL(f))); }} />
             </label>
-            {images.length > 0 && <div className="flex flex-wrap gap-2">{images.map((s) => <img key={s} src={s} alt="" className="h-20 w-20 rounded-lg object-cover ring-2 ring-primary/30" />)}</div>}
+            {previews.length > 0 && <div className="flex flex-wrap gap-2">{previews.map((s) => <img key={s} src={s} alt="" className="h-20 w-20 rounded-lg object-cover ring-2 ring-primary/30" />)}</div>}
+            {submitErr && <p className="text-sm text-destructive">{submitErr}</p>}
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" className="h-4 w-4 accent-primary" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
               Meddela mig när ärendet är utfört
             </label>
             {notify && <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Din e-post" className={`${field} animate-in fade-in slide-in-from-top-2`} />}
-            <button className="rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110">Skicka ärende</button>
+            <button disabled={busy} className="rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-60">{busy ? "Skickar…" : "Skicka ärende"}</button>
           </form>
 
           <h2 className="mt-12 text-2xl">Dina ärenden</h2>

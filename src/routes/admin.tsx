@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDemo, unreadCount, allTickets, codeTaken, STATUSES, type Status } from "@/lib/demo-store";
 import { TicketList, statusStyle } from "./index";
 import { Overview } from "@/components/AdminOverview";
@@ -31,6 +31,7 @@ function Admin() {
   const [ns, setNs] = useState({ name: "", code: "" });
   const [nc, setNc] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
+  useEffect(() => { if (!sel && projects.length > 0) setSel(projects[0].code); }, [projects, sel]);
   const project = projects.find((p) => p.code === sel);
   const sub = project?.subs.find((s) => s.id === subSel) ?? project?.subs[0];
 
@@ -69,7 +70,9 @@ function Admin() {
           <form className="flex flex-wrap gap-2" onSubmit={(e) => {
             e.preventDefault();
             if (!np.name.trim() || !check(np.code)) return;
-            addProject(np.name, np.code); setSel(np.code.trim().toUpperCase()); setSubSel(""); setNp({ name: "", code: "" });
+            addProject(np.name, np.code)
+              .then(() => { setSel(np.code.trim().toUpperCase()); setSubSel(""); setNp({ name: "", code: "" }); })
+              .catch((e) => setErr(e instanceof Error ? e.message : "Kunde inte skapa projektet"));
           }}>
             <input value={np.name} onChange={(e) => setNp({ ...np, name: e.target.value })} placeholder="Projektnamn" className={inp} />
             <input value={np.code} onChange={(e) => setNp({ ...np, code: e.target.value })} placeholder="HUVUDKOD" className={`${inp} uppercase`} />
@@ -77,6 +80,7 @@ function Admin() {
           </form>
         </div>
 
+        {projects.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Laddar projekt…</p>}
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => {
             const unread = unreadCount(p);
@@ -114,7 +118,9 @@ function Admin() {
                       e.preventDefault();
                       const c = nc[s.id] ?? "";
                       if (!check(c)) return;
-                      addSubCode(project.code, s.id, c); setNc({ ...nc, [s.id]: "" });
+                      addSubCode(project.code, s.id, c)
+                        .then(() => setNc({ ...nc, [s.id]: "" }))
+                        .catch((e) => setErr(e instanceof Error ? e.message : "Kunde inte lägga till koden"));
                     }}>
                       <input value={nc[s.id] ?? ""} onChange={(e) => setNc({ ...nc, [s.id]: e.target.value })} placeholder="NY KOD" className={`${inp} w-full uppercase`} />
                       <button className="rounded-xl bg-secondary px-3 text-sm font-semibold text-secondary-foreground">+ Kod</button>
@@ -125,7 +131,9 @@ function Admin() {
               <form className="flex flex-col gap-2 rounded-2xl border-2 border-dashed border-primary/40 p-4" onSubmit={(e) => {
                 e.preventDefault();
                 if (!ns.name.trim() || !check(ns.code)) return;
-                addSub(project.code, ns.name, ns.code); setNs({ name: "", code: "" });
+                addSub(project.code, ns.name, ns.code)
+                  .then(() => setNs({ name: "", code: "" }))
+                  .catch((e) => setErr(e instanceof Error ? e.message : "Kunde inte skapa underprojektet"));
               }}>
                 <p className="font-semibold">Nytt underprojekt</p>
                 <input value={ns.name} onChange={(e) => setNs({ ...ns, name: e.target.value })} placeholder="Namn" className={inp} />
