@@ -138,8 +138,27 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 
+/** Shown when the portal data layer never mounted (e.g. a stale dev bundle):
+ *  a visible message beats a blank screen. */
+const FALLBACK: Ctx = {
+  projects: [],
+  loading: false,
+  error: "Portalen kunde inte laddas – ladda om sidan.",
+  isAdmin: false,
+  setAdminToken: async () => {},
+  openCode: async () => null,
+  addTicket: async () => {},
+  setStatus: () => {},
+  addProject: async () => {},
+  addSub: async () => {},
+  addSubCode: async () => {},
+};
+
 export function useDemo() {
   const c = useContext(C);
-  if (!c) throw new Error("DemoProvider missing");
+  if (!c) {
+    console.warn("DemoProvider saknas – visar felskärm i stället för tom sida");
+    return FALLBACK;
+  }
   return c;
 }
