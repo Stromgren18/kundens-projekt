@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useDemo, STATUSES, resolveCode, type Project, type Status, type Ticket } from "@/lib/demo-store";
+import { useDemo, STATUSES, type Project, type Status, type Ticket } from "@/lib/demo-store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
 export const field = "w-full rounded-xl border-2 border-input bg-background px-4 py-3 outline-none transition focus:border-primary";
 
 function Index() {
-  const { projects, loading, error } = useDemo();
+  const { projects, loading, error, openCode } = useDemo();
   const [code, setCode] = useState("");
   const [access, setAccess] = useState<{ code: string; subIds: string[] } | null>(null);
   const [err, setErr] = useState("");
@@ -41,20 +41,16 @@ function Index() {
           style={{ boxShadow: "var(--shadow-pop)" }}
           onSubmit={(e) => {
             e.preventDefault();
-            const r = resolveCode(projects, code);
-            if (r) { setAccess({ code: r.project.code, subIds: r.subIds }); setErr(""); } else setErr("Okänd projektkod – kontrollera och försök igen.");
+            openCode(code)
+              .then((r) => { if (r) { setAccess({ code: r.project.code, subIds: r.subIds }); setErr(""); } else setErr("Okänd projektkod – kontrollera och försök igen."); })
+              .catch(() => setErr("Kunde inte nå databasen – försök igen."));
           }}
         >
           <h2 className="text-2xl">Öppna ditt projekt</h2>
           <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="PROJEKTKOD" className={`${field} mt-5 text-center text-lg font-semibold tracking-[0.3em] uppercase`} />
           {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
           {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-          <button disabled={loading} className="mt-4 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-60">{loading ? "Laddar projekt…" : "Öppna projekt →"}</button>
-          {!loading && projects.length > 0 && (
-            <p className="mt-4 text-center text-xs text-muted-foreground">
-              Huvudkod: {projects.map((p) => p.code).join(", ")} · Underkod: {projects.flatMap((p) => p.subs.flatMap((s) => s.codes)).slice(0, 4).join(", ")}
-            </p>
-          )}
+          <button disabled={loading} className="mt-4 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-60">{loading ? "Öppnar…" : "Öppna projekt →"}</button>
         </form>
       </div>
       <Link to="/admin" className="absolute bottom-5 right-6 text-sm opacity-60 underline hover:opacity-100">Admin</Link>

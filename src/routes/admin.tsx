@@ -23,7 +23,7 @@ export const Route = createFileRoute("/admin")({
 const inp = "rounded-xl border-2 border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary";
 const btn = "rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-60";
 
-function AdminLogin({ onIn }: { onIn: () => void }) {
+function AdminLogin({ onIn }: { onIn: (token: string) => void }) {
   const signIn = useServerFn(adminSignIn);
   const setPw = useServerFn(adminSetPassword);
   const [token, setToken] = useState("");
@@ -41,12 +41,13 @@ function AdminLogin({ onIn }: { onIn: () => void }) {
     e.preventDefault(); setBusy(true); setMsg("");
     try {
       if (token) {
-        await setPw({ data: { accessToken: token, password: pw } });
+        const r = await setPw({ data: { accessToken: token, password: pw } });
         window.history.replaceState(null, "", "/admin");
+        onIn(r.token);
       } else {
-        await signIn({ data: { email, password: pw } });
+        const r = await signIn({ data: { email, password: pw } });
+        onIn(r.token);
       }
-      onIn();
     } catch (er) { setMsg(er instanceof Error ? er.message : "Något gick fel"); }
     finally { setBusy(false); }
   };
@@ -65,8 +66,8 @@ function AdminLogin({ onIn }: { onIn: () => void }) {
 }
 
 function Admin() {
-  const { projects, setStatus, addProject, addSub, addSubCode } = useDemo();
-  const [in_, setIn] = useState(false);
+  const { projects, setStatus, addProject, addSub, addSubCode, isAdmin, setAdminToken, error } = useDemo();
+  const in_ = isAdmin;
   const [sel, setSel] = useState(projects[0]?.code ?? "");
   const [subSel, setSubSel] = useState<string>("");
   const [filter, setFilter] = useState<"Alla" | Status>("Alla");
@@ -84,18 +85,18 @@ function Admin() {
     setErr(""); return true;
   };
 
-  if (!in_) return <AdminLogin onIn={() => setIn(true)} />;
+  if (!in_) return <AdminLogin onIn={(t) => { void setAdminToken(t); }} />;
 
   return (
     <main className="min-h-screen">
       <header className="text-graphite-foreground" style={{ background: "var(--gradient-hero)" }}>
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-10">
           <h1 className="text-4xl">Admin<span className="text-primary">.</span></h1>
-          <button onClick={() => setIn(false)} className="text-sm underline opacity-70">Logga ut</button>
+          <button onClick={() => { void setAdminToken(null); }} className="text-sm underline opacity-70">Logga ut</button>
         </div>
       </header>
       <div className="mx-auto max-w-5xl px-6 pb-16">
-        {err && <p className="mt-6 rounded-xl bg-destructive/10 px-4 py-2 text-sm text-destructive">{err}</p>}
+        {(err || error) && <p className="mt-6 rounded-xl bg-destructive/10 px-4 py-2 text-sm text-destructive">{err || error}</p>}
 
         <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-2xl">Alla projekt</h2>
