@@ -94,6 +94,8 @@ function Admin() {
           })}
         </div>
 
+        <Overview onOpen={(code, subId) => { setSel(code); setSubSel(subId); }} />
+
         {project && (
           <>
             <h2 className="mt-10 text-2xl">{project.name} – underprojekt</h2>
