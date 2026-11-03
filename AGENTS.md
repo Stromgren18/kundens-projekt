@@ -13,3 +13,4 @@
 
 - All Supabase access goes through TanStack server functions (`src/lib/db.functions.ts`, `src/lib/auth.functions.ts`) using `SUPA_URL`/`SUPA_KEY`. Customers reach data only via code-gated SECURITY DEFINER RPCs (`portal_load`, `portal_create_ticket`); admin functions require the admin's access token and RLS checks `has_role(auth.uid(),'admin')`. Why: project codes and customer emails must never be readable anonymously.
 - Ticket images are uploaded server-side with the service-role client only after the code is verified, into the public `ticket-images` bucket (no anon storage policies). Why: anonymous clients must not write or list storage.
+- `useDemo()` never throws when its provider is absent; it returns a fallback context carrying a visible load-error message, and the provider is imported through the `@/` alias everywhere. Why: a missing provider must show a message, not blank the screen.
