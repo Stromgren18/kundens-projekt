@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useDemo, STATUSES, type Project, type Status, type Ticket } from "@/lib/demo-store";
+import { MAX_FILES, checkFile, compressImage, fmtSize, isPdf, isPdfUrl } from "@/lib/upload";
+
+type Preview = { url: string; name: string; label: string };
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -66,7 +69,8 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [previews, setPreviews] = useState<Preview[]>([]);
+  const [compressing, setCompressing] = useState(false);
   const [submitErr, setSubmitErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [notify, setNotify] = useState(false);
@@ -121,10 +125,42 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
             <textarea required value={body} onChange={(e) => setBody(e.target.value)} placeholder="Beskriv vad du vill ha gjort" rows={4} className={field} />
             <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-accent/40 px-4 py-6 text-sm text-accent-foreground transition hover:bg-accent">
               <span className="text-2xl">📎</span>
-              <span className="font-semibold">Bifoga bilder</span>
-              <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const fs = Array.from(e.target.files ?? []); setFiles(fs); setPreviews(fs.map((f) => URL.createObjectURL(f))); }} />
+              <span className="font-semibold">{compressing ? "Komprimerar…" : "Bifoga bilder eller PDF"}</span>
+              <span className="text-xs opacity-70">Max {MAX_FILES} filer · bilder max 25 MB (krymps automatiskt) · PDF max 10 MB</span>
+              <input type="file" accept="image/*,application/pdf" multiple className="hidden" disabled={compressing} onChange={async (e) => {
+                const picked = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                setSubmitErr("");
+                if (files.length + picked.length > MAX_FILES) { setSubmitErr(`Max ${MAX_FILES} filer per ärende.`); return; }
+                const bad = picked.map(checkFile).find(Boolean);
+                if (bad) { setSubmitErr(bad); return; }
+                setCompressing(true);
+                try {
+                  const out: File[] = [];
+                  const pv: Preview[] = [];
+                  for (const f of picked) {
+                    const done = isPdf(f.type) ? f : await compressImage(f);
+                    out.push(done);
+                    pv.push({ url: isPdf(f.type) ? "" : URL.createObjectURL(done), name: f.name, label: isPdf(f.type) ? fmtSize(f.size) : `${fmtSize(f.size)} → ${fmtSize(done.size)}` });
+                  }
+                  setFiles((x) => [...x, ...out]);
+                  setPreviews((x) => [...x, ...pv]);
+                } catch (err) {
+                  setSubmitErr(err instanceof Error ? err.message : "Kunde inte förbereda filen.");
+                } finally { setCompressing(false); }
+              }} />
             </label>
-            {previews.length > 0 && <div className="flex flex-wrap gap-2">{previews.map((s) => <img key={s} src={s} alt="" className="h-20 w-20 rounded-lg object-cover ring-2 ring-primary/30" />)}</div>}
+            {previews.length > 0 && (
+              <div className="flex flex-wrap gap-3">
+                {previews.map((p, i) => (
+                  <div key={i} className="relative w-24 text-center">
+                    {p.url ? <img src={p.url} alt="" className="h-20 w-24 rounded-lg object-cover ring-2 ring-primary/30" /> : <div className="flex h-20 w-24 items-center justify-center rounded-lg bg-secondary text-sm font-semibold ring-2 ring-primary/30">📄 PDF</div>}
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground" title={p.name}>{p.label}</p>
+                    <button type="button" aria-label="Ta bort fil" onClick={() => { setFiles((x) => x.filter((_, j) => j !== i)); setPreviews((x) => x.filter((_, j) => j !== i)); }} className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-primary text-xs text-primary-foreground">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
             {submitErr && <p className="text-sm text-destructive">{submitErr}</p>}
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" className="h-4 w-4 accent-primary" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
@@ -163,7 +199,7 @@ export function TicketList({ tickets, onStatus }: { tickets: Ticket[]; onStatus?
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusStyle[t.status].badge}`}>{t.status}</span>
           </div>
           <p className="mt-3 whitespace-pre-wrap">{t.body}</p>
-          {t.images.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{t.images.map((s) => <a key={s} href={s} target="_blank" rel="noreferrer"><img src={s} alt="" className="h-24 w-24 rounded-lg object-cover transition hover:scale-105" /></a>)}</div>}
+          {t.images.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{t.images.map((s) => <a key={s} href={s} target="_blank" rel="noreferrer">{isPdfUrl(s) ? <span className="flex h-24 w-24 items-center justify-center rounded-lg bg-secondary text-sm font-semibold transition hover:scale-105">📄 PDF</span> : <img src={s} alt="" className="h-24 w-24 rounded-lg object-cover transition hover:scale-105" />}</a>)}</div>}
           {onStatus && (
             <div className="mt-4 flex flex-wrap gap-2">
               {STATUSES.map((s) => (
