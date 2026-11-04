@@ -4,7 +4,7 @@ import { useDemo, unreadCount, allTickets, codeTaken, STATUSES, type Status } fr
 import { TicketList, statusStyle } from "./index";
 import { Overview } from "@/components/AdminOverview";
 import { useServerFn } from "@tanstack/react-start";
-import { adminSignIn, adminSetPassword } from "@/lib/auth.functions";
+import { adminSignIn, adminSetPassword, adminRefresh } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -20,13 +20,15 @@ export const Route = createFileRoute("/admin")({
   component: Admin,
 });
 
+const REFRESH_KEY = "fn-admin-refresh";
 const inp = "rounded-xl border-2 border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary";
 const btn = "rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-60";
 
-function AdminLogin({ onIn }: { onIn: (token: string) => void }) {
+function AdminLogin({ onIn }: { onIn: (token: string, refresh?: string | null) => void }) {
   const signIn = useServerFn(adminSignIn);
   const setPw = useServerFn(adminSetPassword);
   const [token, setToken] = useState("");
+  const [refreshTok, setRefreshTok] = useState("");
   const [email, setEmail] = useState("");
   const [pw, setPwVal] = useState("");
   const [msg, setMsg] = useState("");
@@ -34,19 +36,19 @@ function AdminLogin({ onIn }: { onIn: (token: string) => void }) {
   useEffect(() => {
     const h = new URLSearchParams(window.location.hash.slice(1));
     const t = h.get("access_token");
-    if (t && (h.get("type") === "invite" || h.get("type") === "recovery")) setToken(t);
+    if (t && (h.get("type") === "invite" || h.get("type") === "recovery")) { setToken(t); setRefreshTok(h.get("refresh_token") ?? ""); }
     if (h.get("error_description")) setMsg(h.get("error_description") ?? "");
   }, []);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setMsg("");
     try {
       if (token) {
-        const r = await setPw({ data: { accessToken: token, password: pw } });
+        const r = await setPw({ data: { accessToken: token, refresh: refreshTok || undefined, password: pw } });
         window.history.replaceState(null, "", "/admin");
-        onIn(r.token);
+        onIn(r.token, r.refresh);
       } else {
         const r = await signIn({ data: { email, password: pw } });
-        onIn(r.token);
+        onIn(r.token, r.refresh);
       }
     } catch (er) { setMsg(er instanceof Error ? er.message : "Något gick fel"); }
     finally { setBusy(false); }
@@ -75,6 +77,17 @@ function Admin() {
   const [ns, setNs] = useState({ name: "", code: "" });
   const [nc, setNc] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
+  const [restoring, setRestoring] = useState(true);
+  const refreshFn = useServerFn(adminRefresh);
+  useEffect(() => {
+    const saved = localStorage.getItem(REFRESH_KEY);
+    if (!saved || isAdmin) { setRestoring(false); return; }
+    refreshFn({ data: { refresh: saved } })
+      .then((r) => { localStorage.setItem(REFRESH_KEY, r.refresh); return setAdminToken(r.token); })
+      .catch(() => localStorage.removeItem(REFRESH_KEY))
+      .finally(() => setRestoring(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => { const first = projects[0]; if (!sel && first) setSel(first.code); }, [projects, sel]);
   const project = projects.find((p) => p.code === sel);
   const sub = project?.subs.find((s) => s.id === subSel) ?? project?.subs[0];
@@ -85,14 +98,15 @@ function Admin() {
     setErr(""); return true;
   };
 
-  if (!in_) return <AdminLogin onIn={(t) => { void setAdminToken(t); }} />;
+  if (!in_ && restoring) return <main className="min-h-screen flex items-center justify-center text-muted-foreground">Loggar in…</main>;
+  if (!in_) return <AdminLogin onIn={(t, r) => { if (r) localStorage.setItem(REFRESH_KEY, r); void setAdminToken(t); }} />;
 
   return (
     <main className="min-h-screen">
       <header className="text-graphite-foreground" style={{ background: "var(--gradient-hero)" }}>
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-10">
           <h1 className="text-4xl">Admin<span className="text-primary">.</span></h1>
-          <button onClick={() => { void setAdminToken(null); }} className="text-sm underline opacity-70">Logga ut</button>
+          <button onClick={() => { localStorage.removeItem(REFRESH_KEY); void setAdminToken(null); }} className="text-sm underline opacity-70">Logga ut</button>
         </div>
       </header>
       <div className="mx-auto max-w-5xl px-6 pb-16">
