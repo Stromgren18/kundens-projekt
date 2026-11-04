@@ -4,7 +4,7 @@ import { getSupa, getUserSupa } from "./supa.server";
 import { STATUSES, type Project, type Status, type Ticket } from "./types";
 
 const BUCKET = "ticket-images";
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
+import { MAX_FILES, MAX_IMAGE_BYTES, MAX_PDF_BYTES } from "./upload";
 
 const statusOk = (s: unknown): s is Status =>
   typeof s === "string" && (STATUSES as readonly string[]).includes(s);
@@ -90,7 +90,7 @@ export const loadProjects = createServerFn({ method: "POST" })
     }));
   });
 
-const fileSchema = z.object({ name: z.string().max(200), dataUrl: z.string().max(12_000_000) });
+const fileSchema = z.object({ name: z.string().max(200), dataUrl: z.string().max(14_500_000) });
 
 export const createTicket = createServerFn({ method: "POST" })
   .inputValidator((d) =>
@@ -102,7 +102,7 @@ export const createTicket = createServerFn({ method: "POST" })
         body: z.string().min(1).max(5000),
         notify: z.boolean(),
         email: z.string().email().optional(),
-        files: z.array(fileSchema).max(10),
+        files: z.array(fileSchema).max(MAX_FILES),
       })
       .parse(d),
   )
@@ -120,10 +120,12 @@ export const createTicket = createServerFn({ method: "POST" })
         const comma = f.dataUrl.indexOf(",");
         if (comma < 0) throw new Error(`Felaktig fildata för ${f.name}`);
         const mime = /data:(.*?);/.exec(f.dataUrl.slice(0, comma))?.[1] ?? "";
-        if (!mime.startsWith("image/")) throw new Error(`${f.name} är inte en bild`);
+        const pdf = mime === "application/pdf";
+        if (!pdf && !mime.startsWith("image/")) throw new Error(`${f.name} är varken bild eller PDF`);
         const bytes = Buffer.from(f.dataUrl.slice(comma + 1), "base64");
-        if (bytes.length > MAX_FILE_BYTES) throw new Error(`Filen ${f.name} är för stor (max 8 MB)`);
-        const ext = (mime.split("/")[1] ?? "bin").replace(/[^a-z0-9]/gi, "").slice(0, 8);
+        if (pdf && bytes.length > MAX_PDF_BYTES) throw new Error(`${f.name} är för stor (max 10 MB)`);
+        if (!pdf && bytes.length > MAX_IMAGE_BYTES) throw new Error(`Bilden ${f.name} är för stor (max 700 kB)`);
+        const ext = pdf ? "pdf" : (mime.split("/")[1] ?? "bin").replace(/[^a-z0-9]/gi, "").slice(0, 8);
         const path = `${data.subId}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
         const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: mime });
         if (error) throw new Error(`Kunde inte ladda upp ${f.name}`);
