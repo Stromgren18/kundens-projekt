@@ -185,7 +185,12 @@ export const statusStyle: Record<Status, { badge: string; border: string }> = {
   Färdigt: { badge: "bg-success text-success-foreground", border: "border-success-foreground" },
 };
 
-export function TicketList({ tickets, onStatus }: { tickets: Ticket[]; onStatus?: (id: string, s: Status) => void }) {
+export function TicketList({ tickets, onStatus, moveTargets, onMove }: {
+  tickets: Ticket[];
+  onStatus?: (id: string, s: Status) => void;
+  moveTargets?: { id: string; name: string }[];
+  onMove?: (id: string, subId: string) => void;
+}) {
   if (tickets.length === 0) return <p className="mt-4 text-muted-foreground">Inga ärenden ännu.</p>;
   return (
     <ul className="mt-4 space-y-4">
@@ -207,6 +212,12 @@ export function TicketList({ tickets, onStatus }: { tickets: Ticket[]; onStatus?
                   {s}
                 </button>
               ))}
+              {onMove && moveTargets && moveTargets.length > 0 && (
+                <select value="" onChange={(e) => e.target.value && onMove(t.id, e.target.value)} aria-label="Flytta ärende" className="ml-auto rounded-xl border-2 border-input bg-background px-2 py-1 text-xs font-semibold">
+                  <option value="">↪ Flytta till…</option>
+                  {moveTargets.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              )}
             </div>
           )}
         </li>

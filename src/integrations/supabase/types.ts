@@ -69,18 +69,21 @@ export type Database = {
       }
       sub_projects: {
         Row: {
+          archived: boolean
           created_at: string | null
           id: string
           name: string
           project_id: string
         }
         Insert: {
+          archived?: boolean
           created_at?: string | null
           id?: string
           name: string
           project_id: string
         }
         Update: {
+          archived?: boolean
           created_at?: string | null
           id?: string
           name?: string

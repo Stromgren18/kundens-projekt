@@ -11,7 +11,7 @@ export type Ticket = {
   status: Status;
   createdAt: string;
 };
-export type Sub = { id: string; name: string; codes: string[]; tickets: Ticket[] };
+export type Sub = { id: string; name: string; codes: string[]; tickets: Ticket[]; archived?: boolean };
 export type Project = { code: string; name: string; client: string; subs: Sub[] };
 
 export const allTickets = (p: Project) => p.subs.flatMap((s) => s.tickets);
