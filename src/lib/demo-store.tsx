@@ -9,6 +9,8 @@ import {
   createProject,
   createSub,
   addSubCode as addSubCodeSrv,
+  setSubArchived,
+  moveTicket as moveTicketSrv,
 } from "./db.functions";
 
 export * from "./types";
@@ -34,6 +36,8 @@ type Ctx = {
   addProject: (name: string, code: string) => Promise<void>;
   addSub: (code: string, name: string, subCode: string) => Promise<void>;
   addSubCode: (code: string, subId: string, subCode: string) => Promise<void>;
+  archiveSub: (subId: string, archived: boolean) => Promise<void>;
+  moveTicket: (id: string, toSubId: string) => Promise<void>;
 };
 
 const C = createContext<Ctx | null>(null);
@@ -60,6 +64,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const runProject = useServerFn(createProject);
   const runSub = useServerFn(createSub);
   const runCode = useServerFn(addSubCodeSrv);
+  const runArchive = useServerFn(setSubArchived);
+  const runMove = useServerFn(moveTicketSrv);
 
   const refresh = async (tok = token, code = custCode) => {
     try {
@@ -134,6 +140,14 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       await runCode({ data: { token: need(), subId, code: subCode } });
       await refresh();
     },
+    archiveSub: async (subId, archived) => {
+      await runArchive({ data: { token: need(), subId, archived } });
+      await refresh();
+    },
+    moveTicket: async (id, toSubId) => {
+      await runMove({ data: { token: need(), id, subId: toSubId } });
+      await refresh();
+    },
   };
   return <C.Provider value={value}>{children}</C.Provider>;
 }
@@ -152,6 +166,8 @@ const FALLBACK: Ctx = {
   addProject: async () => {},
   addSub: async () => {},
   addSubCode: async () => {},
+  archiveSub: async () => {},
+  moveTicket: async () => {},
 };
 
 export function useDemo() {
