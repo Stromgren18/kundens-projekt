@@ -68,7 +68,8 @@ function AdminLogin({ onIn }: { onIn: (token: string, refresh?: string | null) =
 }
 
 function Admin() {
-  const { projects, setStatus, addProject, addSub, addSubCode, isAdmin, setAdminToken, error } = useDemo();
+  const { projects, setStatus, addProject, addSub, addSubCode, archiveSub, moveTicket, isAdmin, setAdminToken, error } = useDemo();
+  const [showArchived, setShowArchived] = useState(false);
   const in_ = isAdmin;
   const [sel, setSel] = useState(projects[0]?.code ?? "");
   const [subSel, setSubSel] = useState<string>("");
@@ -130,14 +131,15 @@ function Admin() {
         {projects.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Inga projekt ännu – skapa ditt första ovan.</p>}
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => {
-            const unread = unreadCount(p);
-            const ts = allTickets(p);
+            const active = { ...p, subs: p.subs.filter((s) => !s.archived) };
+            const unread = unreadCount(active);
+            const ts = allTickets(active);
             return (
               <button key={p.code} onClick={() => { setSel(p.code); setSubSel(""); }} className={`relative rounded-2xl bg-card p-5 text-left transition hover:-translate-y-0.5 ${p.code === sel ? "ring-2 ring-primary" : "ring-1 ring-border"}`} style={{ boxShadow: p.code === sel ? "var(--shadow-pop)" : undefined }}>
                 {unread > 0 && <span className="absolute -right-2 -top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-primary px-2 text-sm font-bold text-primary-foreground animate-bounce" title="Olästa ärenden">{unread}</span>}
                 <p className="text-xs font-semibold uppercase tracking-widest text-primary">{p.code}</p>
                 <h3 className="mt-1 text-lg">{p.name}</h3>
-                <p className="text-sm text-muted-foreground">{p.subs.length} underprojekt</p>
+                <p className="text-sm text-muted-foreground">{active.subs.length} underprojekt{p.subs.length > active.subs.length && ` · ${p.subs.length - active.subs.length} arkiverade`}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {STATUSES.map((s) => <span key={s} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle[s].badge}`}>{s}: {ts.filter((t) => t.status === s).length}</span>)}
                 </div>
@@ -150,14 +152,28 @@ function Admin() {
 
         {project && (
           <>
-            <h2 className="mt-10 text-2xl">{project.name} – underprojekt</h2>
+            <div className="mt-10 flex flex-wrap items-end justify-between gap-3">
+              <h2 className="text-2xl">{project.name} – underprojekt</h2>
+              {project.subs.some((s) => s.archived) && (
+                <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Visa arkiverade ({project.subs.filter((s) => s.archived).length})</label>
+              )}
+            </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {project.subs.map((s) => {
-                const u = unreadCount(s);
+              {project.subs.filter((s) => showArchived || !s.archived).map((s) => {
+                const u = s.archived ? 0 : unreadCount(s);
                 return (
-                  <div key={s.id} onClick={() => setSubSel(s.id)} className={`relative cursor-pointer rounded-2xl bg-card p-4 transition ${s.id === sub?.id ? "ring-2 ring-primary" : "ring-1 ring-border"}`}>
+                  <div key={s.id} onClick={() => setSubSel(s.id)} className={`relative cursor-pointer rounded-2xl bg-card p-4 transition ${s.archived ? "opacity-60" : ""} ${s.id === sub?.id ? "ring-2 ring-primary" : "ring-1 ring-border"}`}>
                     {u > 0 && <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground">{u}</span>}
-                    <h3 className="text-lg">{s.name}</h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-lg">{s.name}{s.archived && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">Arkiverad</span>}</h3>
+                      <button type="button" onClick={(e) => {
+                        e.stopPropagation();
+                        if (!s.archived && !confirm(`Arkivera "${s.name}"? Kunden ser det inte längre, men historiken sparas.`)) return;
+                        archiveSub(s.id, !s.archived).catch((er) => setErr(er instanceof Error ? er.message : "Kunde inte arkivera"));
+                      }} className="shrink-0 rounded-lg bg-secondary px-2 py-1 text-xs font-semibold text-secondary-foreground hover:brightness-95">
+                        {s.archived ? "↩ Återställ" : "🗄 Arkivera"}
+                      </button>
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {s.codes.map((c) => <span key={c} className="rounded-md bg-graphite px-2 py-0.5 font-mono text-xs text-graphite-foreground">{c}</span>)}
                     </div>
@@ -200,6 +216,8 @@ function Admin() {
                 <TicketList
                   tickets={filter === "Alla" ? sub.tickets : sub.tickets.filter((t) => t.status === filter)}
                   onStatus={(id, s) => setStatus(project.code, sub.id, id, s)}
+                  moveTargets={project.subs.filter((s) => s.id !== sub.id && !s.archived).map((s) => ({ id: s.id, name: s.name }))}
+                  onMove={(id, to) => moveTicket(id, to).catch((er) => setErr(er instanceof Error ? er.message : "Kunde inte flytta ärendet"))}
                 />
               </>
             )}
