@@ -84,6 +84,7 @@ export const loadProjects = createServerFn({ method: "POST" })
         .map((sb) => ({
           id: str(sb["id"]),
           name: str(sb["name"]),
+          archived: sb["archived"] === true,
           codes: codes.filter((cd) => cd["sub_project_id"] === sb["id"]).map((cd) => str(cd["code"])),
           tickets: tickets.filter((tk) => tk["sub_project_id"] === sb["id"]).map(toTicket),
         })),
@@ -153,6 +154,24 @@ export const setTicketStatus = createServerFn({ method: "POST" })
     const supa = await adminClient(data.token);
     const { error } = await supa.from("tickets").update({ status: data.status }).eq("id", data.id);
     if (error) throw new Error("Kunde inte uppdatera status");
+    return { ok: true };
+  });
+
+export const setSubArchived = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ token, subId: z.string().uuid(), archived: z.boolean() }).parse(d))
+  .handler(async ({ data }) => {
+    const supa = await adminClient(data.token);
+    const { error } = await supa.from("sub_projects").update({ archived: data.archived } as never).eq("id", data.subId);
+    if (error) throw new Error("Kunde inte uppdatera underprojektet");
+    return { ok: true };
+  });
+
+export const moveTicket = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ token, id: z.string().uuid(), subId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const supa = await adminClient(data.token);
+    const { error } = await supa.from("tickets").update({ sub_project_id: data.subId }).eq("id", data.id);
+    if (error) throw new Error("Kunde inte flytta ärendet");
     return { ok: true };
   });
 
