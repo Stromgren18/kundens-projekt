@@ -35,8 +35,7 @@ function Index() {
       <div className="pointer-events-none absolute -left-24 bottom-[-6rem] h-80 w-80 rounded-full bg-primary/30 blur-3xl animate-pulse" />
       <div className="relative mx-auto flex min-h-screen max-w-5xl flex-col justify-center gap-12 px-6 py-16 md:flex-row md:items-center">
         <div className="flex-1 animate-in fade-in slide-in-from-left-6 duration-700">
-          <span className="inline-block rounded-full bg-primary px-4 py-1 text-xs font-semibold uppercase tracking-widest text-primary-foreground">Frilans Norr</span>
-          <h1 className="mt-6 text-5xl leading-[1.05] md:text-6xl">Ditt projekt.<br /><span className="text-primary">Dina önskemål.</span></h1>
+          <h1 className="text-5xl leading-[1.05] md:text-6xl">Ditt projekt.<br /><span className="text-primary">Dina önskemål.</span></h1>
           <p className="mt-5 max-w-md text-lg opacity-80">Logga in med din projektkod och berätta vad du vill ha fixat – med text och bilder. Vi hör av oss när det är klart.</p>
         </div>
         <form
