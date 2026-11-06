@@ -68,8 +68,9 @@ function AdminLogin({ onIn }: { onIn: (token: string, refresh?: string | null) =
 }
 
 function Admin() {
-  const { projects, setStatus, addProject, addSub, addSubCode, archiveSub, moveTicket, isAdmin, setAdminToken, error } = useDemo();
+  const { projects, setStatus, addProject, addSub, addSubCode, archiveSub, moveTicket, renameProject, archiveProject, removeProject, isAdmin, setAdminToken, error } = useDemo();
   const [showArchived, setShowArchived] = useState(false);
+  const [showArchivedP, setShowArchivedP] = useState(false);
   const in_ = isAdmin;
   const [sel, setSel] = useState(projects[0]?.code ?? "");
   const [subSel, setSubSel] = useState<string>("");
@@ -129,16 +130,19 @@ function Admin() {
         </div>
 
         {projects.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Inga projekt ännu – skapa ditt första ovan.</p>}
+        {projects.some((p) => p.archived) && (
+          <label className="mt-3 flex items-center gap-1.5 text-sm"><input type="checkbox" checked={showArchivedP} onChange={(e) => setShowArchivedP(e.target.checked)} /> Visa arkiverade projekt ({projects.filter((p) => p.archived).length})</label>
+        )}
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((p) => {
+          {projects.filter((p) => showArchivedP || !p.archived || p.code === sel).map((p) => {
             const active = { ...p, subs: p.subs.filter((s) => !s.archived) };
-            const unread = unreadCount(active);
+            const unread = p.archived ? 0 : unreadCount(active);
             const ts = allTickets(active);
             return (
-              <button key={p.code} onClick={() => { setSel(p.code); setSubSel(""); }} className={`relative rounded-2xl bg-card p-5 text-left transition hover:-translate-y-0.5 ${p.code === sel ? "ring-2 ring-primary" : "ring-1 ring-border"}`} style={{ boxShadow: p.code === sel ? "var(--shadow-pop)" : undefined }}>
+              <button key={p.code} onClick={() => { setSel(p.code); setSubSel(""); }} className={`relative rounded-2xl bg-card p-5 text-left transition hover:-translate-y-0.5 ${p.archived ? "opacity-60" : ""} ${p.code === sel ? "ring-2 ring-primary" : "ring-1 ring-border"}`} style={{ boxShadow: p.code === sel ? "var(--shadow-pop)" : undefined }}>
                 {unread > 0 && <span className="absolute -right-2 -top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-primary px-2 text-sm font-bold text-primary-foreground animate-bounce" title="Olästa ärenden">{unread}</span>}
                 <p className="text-xs font-semibold uppercase tracking-widest text-primary">{p.code}</p>
-                <h3 className="mt-1 text-lg">{p.name}</h3>
+                <h3 className="mt-1 text-lg">{p.name}{p.archived && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">Arkiverat</span>}</h3>
                 <p className="text-sm text-muted-foreground">{active.subs.length} underprojekt{p.subs.length > active.subs.length && ` · ${p.subs.length - active.subs.length} arkiverade`}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {STATUSES.map((s) => <span key={s} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle[s].badge}`}>{s}: {ts.filter((t) => t.status === s).length}</span>)}
@@ -153,7 +157,25 @@ function Admin() {
         {project && (
           <>
             <div className="mt-10 flex flex-wrap items-end justify-between gap-3">
-              <h2 className="text-2xl">{project.name} – underprojekt</h2>
+              <div>
+                <h2 className="text-2xl">{project.name} – underprojekt</h2>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => {
+                    const n = prompt("Nytt namn på projektet:", project.name)?.trim();
+                    if (n && n !== project.name) renameProject(project.code, n).catch((er) => setErr(er instanceof Error ? er.message : "Kunde inte byta namn"));
+                  }} className="rounded-lg bg-secondary px-2 py-1 text-xs font-semibold text-secondary-foreground hover:brightness-95">✏️ Byt namn</button>
+                  <button type="button" onClick={() => {
+                    if (!project.archived && !confirm(`Arkivera hela "${project.name}"? Kunden kommer inte in längre, men allt sparas.`)) return;
+                    archiveProject(project.code, !project.archived).catch((er) => setErr(er instanceof Error ? er.message : "Kunde inte arkivera"));
+                  }} className="rounded-lg bg-secondary px-2 py-1 text-xs font-semibold text-secondary-foreground hover:brightness-95">{project.archived ? "↩ Återställ projekt" : "🗄 Arkivera projekt"}</button>
+                  <button type="button" onClick={() => {
+                    const n = allTickets(project).length;
+                    const typed = prompt(`Ta bort "${project.name}" för alltid? Alla ${project.subs.length} underprojekt, ${n} ärenden och bilder raderas och kan inte återställas.\n\nSkriv projektkoden ${project.code} för att bekräfta:`);
+                    if (typed?.trim().toUpperCase() !== project.code) return;
+                    removeProject(project.code).then(() => { setSel(""); setSubSel(""); }).catch((er) => setErr(er instanceof Error ? er.message : "Kunde inte ta bort projektet"));
+                  }} className="rounded-lg bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20">🗑 Ta bort projekt</button>
+                </div>
+              </div>
               {project.subs.some((s) => s.archived) && (
                 <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Visa arkiverade ({project.subs.filter((s) => s.archived).length})</label>
               )}
