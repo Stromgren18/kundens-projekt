@@ -14,7 +14,7 @@ export function Overview({ onOpen }: { onOpen: (code: string, subId: string) => 
   const [statusF, setStatusF] = useState<"Alla" | Status>("Alla");
   const today = new Date("2026-11-03").getTime();
 
-  const rows = projects.flatMap((p) => p.subs.filter((s) => !s.archived).flatMap((s) => s.tickets.map((t) => ({ p, s, t }))))
+  const rows = projects.filter((p) => !p.archived).flatMap((p) => p.subs.filter((s) => !s.archived).flatMap((s) => s.tickets.map((t) => ({ p, s, t }))))
     .filter(({ t }) => !(hideDone && t.status === "Färdigt"))
     .filter(({ t }) => statusF === "Alla" || t.status === statusF)
     .filter(({ p, s, t }) => `${p.client} ${s.name} ${t.title} ${t.body}`.toLowerCase().includes(q.toLowerCase()));

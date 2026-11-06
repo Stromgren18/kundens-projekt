@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       projects: {
         Row: {
+          archived: boolean
           client: string
           code: string
           created_at: string | null
@@ -23,6 +24,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          archived?: boolean
           client: string
           code: string
           created_at?: string | null
@@ -30,6 +32,7 @@ export type Database = {
           name: string
         }
         Update: {
+          archived?: boolean
           client?: string
           code?: string
           created_at?: string | null
