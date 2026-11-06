@@ -79,6 +79,7 @@ export const loadProjects = createServerFn({ method: "POST" })
       code: str(pr["code"]),
       name: str(pr["name"]),
       client: str(pr["client"]),
+      archived: pr["archived"] === true,
       subs: subs
         .filter((sb) => sb["project_id"] === pr["id"])
         .map((sb) => ({
@@ -235,5 +236,47 @@ export const addSubCode = createServerFn({ method: "POST" })
     if (await codeInUse(supa, code)) throw new Error(`Koden ${code} används redan`);
     const { error } = await supa.from("sub_project_codes").insert({ sub_project_id: data.subId, code });
     if (error) throw new Error("Kunde inte lägga till koden");
+    return { ok: true };
+  });
+
+export const updateProject = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z.object({ token, code: z.string().min(1), name: z.string().min(1).max(120).optional(), archived: z.boolean().optional() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const supa = await adminClient(data.token);
+    const patch: Record<string, unknown> = {};
+    if (data.name !== undefined) { patch["name"] = data.name.trim(); patch["client"] = data.name.trim(); }
+    if (data.archived !== undefined) patch["archived"] = data.archived;
+    const { error } = await supa.from("projects").update(patch as never).eq("code", data.code);
+    if (error) throw new Error("Kunde inte uppdatera projektet");
+    return { ok: true };
+  });
+
+export const deleteProject = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ token, code: z.string().min(1) }).parse(d))
+  .handler(async ({ data }) => {
+    const supa = await adminClient(data.token);
+    const { data: proj } = await supa.from("projects").select("id").eq("code", data.code).maybeSingle();
+    if (!proj) throw new Error("Projektet finns inte");
+    const { data: subs } = await supa.from("sub_projects").select("id").eq("project_id", proj.id);
+    const ids = (subs ?? []).map((s) => s.id);
+    if (ids.length) {
+      const { data: tks } = await supa.from("tickets").select("images").in("sub_project_id", ids);
+      const prefix = `/storage/v1/object/public/${BUCKET}/`;
+      const paths = (tks ?? []).flatMap((t) => (t.images ?? []) as string[])
+        .map((u) => { const i = u.indexOf(prefix); return i < 0 ? "" : decodeURIComponent(u.slice(i + prefix.length)); })
+        .filter(Boolean);
+      if (paths.length) {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await supabaseAdmin.storage.from(BUCKET).remove(paths);
+      }
+      const a = await supa.from("tickets").delete().in("sub_project_id", ids);
+      const b = await supa.from("sub_project_codes").delete().in("sub_project_id", ids);
+      const c = await supa.from("sub_projects").delete().in("id", ids);
+      if (a.error || b.error || c.error) throw new Error("Kunde inte ta bort projektets innehåll");
+    }
+    const { error } = await supa.from("projects").delete().eq("id", proj.id);
+    if (error) throw new Error("Kunde inte ta bort projektet");
     return { ok: true };
   });

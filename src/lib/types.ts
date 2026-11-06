@@ -12,7 +12,7 @@ export type Ticket = {
   createdAt: string;
 };
 export type Sub = { id: string; name: string; codes: string[]; tickets: Ticket[]; archived?: boolean };
-export type Project = { code: string; name: string; client: string; subs: Sub[] };
+export type Project = { code: string; name: string; client: string; subs: Sub[]; archived?: boolean };
 
 export const allTickets = (p: Project) => p.subs.flatMap((s) => s.tickets);
 export const unreadCount = (p: Project | Sub) =>

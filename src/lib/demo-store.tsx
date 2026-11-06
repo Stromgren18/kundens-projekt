@@ -11,6 +11,8 @@ import {
   addSubCode as addSubCodeSrv,
   setSubArchived,
   moveTicket as moveTicketSrv,
+  updateProject,
+  deleteProject,
 } from "./db.functions";
 
 export * from "./types";
@@ -38,6 +40,9 @@ type Ctx = {
   addSubCode: (code: string, subId: string, subCode: string) => Promise<void>;
   archiveSub: (subId: string, archived: boolean) => Promise<void>;
   moveTicket: (id: string, toSubId: string) => Promise<void>;
+  renameProject: (code: string, name: string) => Promise<void>;
+  archiveProject: (code: string, archived: boolean) => Promise<void>;
+  removeProject: (code: string) => Promise<void>;
 };
 
 const C = createContext<Ctx | null>(null);
@@ -66,6 +71,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const runCode = useServerFn(addSubCodeSrv);
   const runArchive = useServerFn(setSubArchived);
   const runMove = useServerFn(moveTicketSrv);
+  const runUpd = useServerFn(updateProject);
+  const runDel = useServerFn(deleteProject);
 
   const refresh = async (tok = token, code = custCode) => {
     try {
@@ -148,6 +155,18 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       await runMove({ data: { token: need(), id, subId: toSubId } });
       await refresh();
     },
+    renameProject: async (code, name) => {
+      await runUpd({ data: { token: need(), code, name } });
+      await refresh();
+    },
+    archiveProject: async (code, archived) => {
+      await runUpd({ data: { token: need(), code, archived } });
+      await refresh();
+    },
+    removeProject: async (code) => {
+      await runDel({ data: { token: need(), code } });
+      await refresh();
+    },
   };
   return <C.Provider value={value}>{children}</C.Provider>;
 }
@@ -168,6 +187,9 @@ const FALLBACK: Ctx = {
   addSubCode: async () => {},
   archiveSub: async () => {},
   moveTicket: async () => {},
+  renameProject: async () => {},
+  archiveProject: async () => {},
+  removeProject: async () => {},
 };
 
 export function useDemo() {
