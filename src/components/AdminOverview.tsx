@@ -21,7 +21,8 @@ export function Overview({ onOpen }: { onOpen: (code: string, subId: string) => 
 
   const val = (r: (typeof rows)[number]) =>
     sort === "kund" ? r.p.client : sort === "projekt" ? r.s.name : sort === "status" ? String(STATUSES.indexOf(r.t.status)) : r.t.createdAt;
-  rows.sort((a, b) => val(a).localeCompare(val(b), "sv") * (asc ? 1 : -1));
+  const hot = (r: (typeof rows)[number]) => (r.t.urgent && r.t.status !== "Färdigt" ? 1 : 0);
+  rows.sort((a, b) => hot(b) - hot(a) || val(a).localeCompare(val(b), "sv") * (asc ? 1 : -1));
 
   const head = (k: SortKey, label: string) => (
     <th className="px-3 py-2 text-left">
@@ -53,10 +54,10 @@ export function Overview({ onOpen }: { onOpen: (code: string, subId: string) => 
             {rows.map(({ p, s, t }) => {
               const days = Math.round((today - new Date(t.createdAt).getTime()) / 864e5);
               return (
-                <tr key={t.id} className="border-t border-border">
+                <tr key={t.id} className={`border-t border-border ${t.urgent && t.status !== "Färdigt" ? "bg-primary/10" : ""}`}>
                   <td className="px-3 py-2 font-semibold">{p.client}</td>
                   <td className="px-3 py-2">{s.name}</td>
-                  <td className="px-3 py-2">{t.title}{t.notify && <span title="Kunden vill ha mejl" className="ml-1">✉️</span>}</td>
+                  <td className="px-3 py-2">{t.urgent && <span title="Brådskande" className="mr-1 rounded-full bg-primary px-1.5 py-0.5 text-xs font-bold text-primary-foreground">🚩 Akut</span>}{t.title}{t.timeSpent && <span className="ml-1 text-xs text-muted-foreground">⏱ {t.timeSpent}</span>}{t.notify && <span title="Kunden vill ha mejl" className="ml-1">✉️</span>}</td>
                   <td className="px-3 py-2">
                     <select value={t.status} onChange={(e) => setStatus(p.code, s.id, t.id, e.target.value as Status)} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle[t.status].badge}`}>
                       {STATUSES.map((st) => <option key={st}>{st}</option>)}
