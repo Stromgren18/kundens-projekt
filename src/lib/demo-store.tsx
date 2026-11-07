@@ -76,6 +76,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const runMove = useServerFn(moveTicketSrv);
   const runUpd = useServerFn(updateProject);
   const runDel = useServerFn(deleteProject);
+  const runTime = useServerFn(setTicketTime);
 
   const refresh = async (tok = token, code = custCode) => {
     try {
