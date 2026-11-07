@@ -21,6 +21,8 @@ function toTicket(t: Row): Ticket {
     images: Array.isArray(t["images"]) ? t["images"].map((s) => str(s)) : [],
     notify: t["notify"] === true,
     email: typeof t["email"] === "string" ? t["email"] : undefined,
+    urgent: t["urgent"] === true,
+    timeSpent: typeof t["time_spent"] === "string" ? t["time_spent"] : undefined,
     status: statusOk(t["status"]) ? t["status"] : "Ej läst",
     createdAt: str(t["created_at"]).slice(0, 10),
   };
@@ -103,6 +105,7 @@ export const createTicket = createServerFn({ method: "POST" })
         title: z.string().min(1).max(200),
         body: z.string().min(1).max(5000),
         notify: z.boolean(),
+        urgent: z.boolean().default(false),
         email: z.string().email().optional(),
         files: z.array(fileSchema).max(MAX_FILES),
       })
@@ -143,6 +146,7 @@ export const createTicket = createServerFn({ method: "POST" })
       _images: urls,
       _notify: data.notify,
       _email: data.notify ? (data.email ?? null) : null,
+      _urgent: data.urgent,
     } as never);
     if (error) throw new Error("Kunde inte spara ärendet");
     return { ok: true, images: urls };
@@ -278,5 +282,15 @@ export const deleteProject = createServerFn({ method: "POST" })
     }
     const { error } = await supa.from("projects").delete().eq("id", proj.id);
     if (error) throw new Error("Kunde inte ta bort projektet");
+    return { ok: true };
+  });
+
+export const setTicketTime = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ token, id: z.string().uuid(), time: z.string().max(40) }).parse(d))
+  .handler(async ({ data }) => {
+    const supa = await adminClient(data.token);
+    const v = data.time.trim();
+    const { error } = await supa.from("tickets").update({ time_spent: v || null } as never).eq("id", data.id);
+    if (error) throw new Error("Kunde inte spara tiden");
     return { ok: true };
   });

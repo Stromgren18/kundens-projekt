@@ -13,6 +13,7 @@ import {
   moveTicket as moveTicketSrv,
   updateProject,
   deleteProject,
+  setTicketTime,
 } from "./db.functions";
 
 export * from "./types";
@@ -22,6 +23,7 @@ export type NewTicket = {
   body: string;
   files: File[];
   notify: boolean;
+  urgent: boolean;
   email?: string | undefined;
 };
 
@@ -43,6 +45,7 @@ type Ctx = {
   renameProject: (code: string, name: string) => Promise<void>;
   archiveProject: (code: string, archived: boolean) => Promise<void>;
   removeProject: (code: string) => Promise<void>;
+  setTime: (id: string, time: string) => Promise<void>;
 };
 
 const C = createContext<Ctx | null>(null);
@@ -124,6 +127,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
           title: t.title,
           body: t.body,
           notify: t.notify,
+          urgent: t.urgent,
           email: t.notify ? t.email : undefined,
           files,
         },
@@ -163,6 +167,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       await runUpd({ data: { token: need(), code, archived } });
       await refresh();
     },
+    setTime: async (id, time) => {
+      await runTime({ data: { token: need(), id, time } });
+      await refresh();
+    },
     removeProject: async (code) => {
       await runDel({ data: { token: need(), code } });
       await refresh();
@@ -188,6 +196,7 @@ const FALLBACK: Ctx = {
   archiveSub: async () => {},
   moveTicket: async () => {},
   renameProject: async () => {},
+  setTime: async () => {},
   archiveProject: async () => {},
   removeProject: async () => {},
 };
