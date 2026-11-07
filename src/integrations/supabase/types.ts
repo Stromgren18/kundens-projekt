@@ -112,7 +112,9 @@ export type Database = {
           notify: boolean | null
           status: string
           sub_project_id: string
+          time_spent: string | null
           title: string
+          urgent: boolean
         }
         Insert: {
           body: string
@@ -123,7 +125,9 @@ export type Database = {
           notify?: boolean | null
           status?: string
           sub_project_id: string
+          time_spent?: string | null
           title: string
+          urgent?: boolean
         }
         Update: {
           body?: string
@@ -134,7 +138,9 @@ export type Database = {
           notify?: boolean | null
           status?: string
           sub_project_id?: string
+          time_spent?: string | null
           title?: string
+          urgent?: boolean
         }
         Relationships: [
           {
@@ -189,6 +195,7 @@ export type Database = {
           _notify: boolean
           _sub_id: string
           _title: string
+          _urgent: boolean
         }
         Returns: string
       }

@@ -9,6 +9,8 @@ export type Ticket = {
   notify: boolean;
   email?: string | undefined;
   status: Status;
+  urgent: boolean;
+  timeSpent?: string | undefined;
   createdAt: string;
 };
 export type Sub = { id: string; name: string; codes: string[]; tickets: Ticket[]; archived?: boolean };

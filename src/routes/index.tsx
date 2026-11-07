@@ -73,6 +73,7 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
   const [submitErr, setSubmitErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [notify, setNotify] = useState(false);
+  const [urgent, setUrgent] = useState(false);
   const [email, setEmail] = useState("");
   const tickets = sub?.tickets ?? [];
   const open = tickets.filter((t) => t.status !== "Färdigt").length;
@@ -111,9 +112,9 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
               if (!title.trim() || !body.trim() || (notify && !email.includes("@"))) return;
               setBusy(true);
               setSubmitErr("");
-              addTicket(project.code, sub.id, { title, body, files, notify, email: notify ? email : undefined })
+              addTicket(project.code, sub.id, { title, body, files, notify, urgent, email: notify ? email : undefined })
                 .then(() => {
-                  setTitle(""); setBody(""); setFiles([]); setPreviews([]); setNotify(false); setEmail("");
+                  setTitle(""); setBody(""); setFiles([]); setPreviews([]); setNotify(false); setUrgent(false); setEmail("");
                 })
                 .catch((err) => setSubmitErr(err instanceof Error ? err.message : "Något gick fel – försök igen."))
                 .finally(() => setBusy(false));
@@ -162,6 +163,10 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
             )}
             {submitErr && <p className="text-sm text-destructive">{submitErr}</p>}
             <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" className="h-4 w-4 accent-primary" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
+              🚩 Akut / brådskande
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" className="h-4 w-4 accent-primary" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
               Meddela mig när ärendet är utfört
             </label>
@@ -184,7 +189,23 @@ export const statusStyle: Record<Status, { badge: string; border: string }> = {
   Färdigt: { badge: "bg-success text-success-foreground", border: "border-success-foreground" },
 };
 
-export function TicketList({ tickets, onStatus, moveTargets, onMove }: {
+function TimeNote({ t, onTime }: { t: Ticket; onTime: (id: string, v: string) => Promise<void> }) {
+  const [v, setV] = useState(t.timeSpent ?? "");
+  const [saved, setSaved] = useState(false);
+  return (
+    <form className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-secondary/60 px-3 py-2 text-xs" onSubmit={(e) => {
+      e.preventDefault();
+      onTime(t.id, v).then(() => { setSaved(true); setTimeout(() => setSaved(false), 1500); }).catch(() => {});
+    }}>
+      <span className="font-semibold">⏱ Tid (internt):</span>
+      <input value={v} onChange={(e) => setV(e.target.value)} maxLength={40} placeholder="t.ex. 45 min eller 1,5 h" className="w-40 rounded-lg border-2 border-input bg-background px-2 py-1 outline-none focus:border-primary" />
+      <button className="rounded-lg bg-graphite px-2 py-1 font-semibold text-graphite-foreground">{saved ? "Sparat ✓" : "Spara"}</button>
+    </form>
+  );
+}
+
+export function TicketList({ tickets, onStatus, moveTargets, onMove, onTime }: {
+  onTime?: (id: string, v: string) => Promise<void>;
   tickets: Ticket[];
   onStatus?: (id: string, s: Status) => void;
   moveTargets?: { id: string; name: string }[];
@@ -193,17 +214,18 @@ export function TicketList({ tickets, onStatus, moveTargets, onMove }: {
   if (tickets.length === 0) return <p className="mt-4 text-muted-foreground">Inga ärenden ännu.</p>;
   return (
     <ul className="mt-4 space-y-4">
-      {tickets.map((t) => (
+      {[...tickets].sort((a, b) => Number(b.urgent && b.status !== "Färdigt") - Number(a.urgent && a.status !== "Färdigt")).map((t) => (
         <li key={t.id} className={`rounded-2xl border-l-4 bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md animate-in fade-in slide-in-from-bottom-2 ${statusStyle[t.status].border} ${t.status === "Färdigt" ? "opacity-75" : ""}`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="text-lg">{t.title}</h3>
+              <h3 className="text-lg">{t.urgent && <span className="mr-2 rounded-full bg-primary px-2 py-0.5 align-middle text-xs font-bold text-primary-foreground">🚩 Akut</span>}{t.title}</h3>
               <p className="text-sm text-muted-foreground">{t.createdAt}{t.notify && ` · meddelar ${t.email}`}</p>
             </div>
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusStyle[t.status].badge}`}>{t.status}</span>
           </div>
           <p className="mt-3 whitespace-pre-wrap">{t.body}</p>
           {t.images.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{t.images.map((s) => <a key={s} href={s} target="_blank" rel="noreferrer">{isPdfUrl(s) ? <span className="flex h-24 w-24 items-center justify-center rounded-lg bg-secondary text-sm font-semibold transition hover:scale-105">📄 PDF</span> : <img src={s} alt="" className="h-24 w-24 rounded-lg object-cover transition hover:scale-105" />}</a>)}</div>}
+          {onTime && <TimeNote t={t} onTime={onTime} />}
           {onStatus && (
             <div className="mt-4 flex flex-wrap gap-2">
               {STATUSES.map((s) => (
