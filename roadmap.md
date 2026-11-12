@@ -1,4 +1,6 @@
 # Automatisk mejlavisering
-- [ ] Skicka adminnotis när kunden skapar ett ärende.
-- [ ] Skicka färdigmeddelande endast till kunder som valt det, utan dubbla utskick.
-- [ ] Kontrollera Resend-avsändare, tester och portalens flöden.
+- [x] Skicka adminnotis när kunden skapar ett ärende.
+- [x] Skicka färdigmeddelande endast till kunder som valt det, utan dubbla utskick.
+- [x] Kontrollera Resend-avsändare och tester; 20 tester passerar och offentlig portal/inloggning är kontrollerad.
+- [ ] Verifiera projekt.frilansnorr.se i Resend (väntar på användarens DNS-poster).
+- [ ] Testa verkligt kundärende och färdigmejl efter domänverifiering (utskick stoppas av Resend; autentiserade kontroller saknas för extern Supabase).

@@ -121,7 +121,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         t.files.map(async (f) => ({ name: f.name, dataUrl: await toDataUrl(f) })),
       );
       const login = custCode ?? code;
-      await runTicket({
+      const result = await runTicket({
         data: {
           projectCode: login,
           subId,
@@ -134,10 +134,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         },
       });
       await refresh();
+      if (result.emailWarning) setError(result.emailWarning);
     },
     setStatus: (_code, _subId, id, st) => {
       runStatus({ data: { token: need(), id, status: st } })
-        .then(() => refresh())
+        .then(async (result) => { await refresh(); if (result.emailWarning) setError(result.emailWarning); })
         .catch(() => setError("Kunde inte uppdatera statusen."));
     },
     addProject: async (name, code) => {

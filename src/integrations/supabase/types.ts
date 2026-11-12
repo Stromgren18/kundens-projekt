@@ -105,6 +105,7 @@ export type Database = {
       tickets: {
         Row: {
           body: string
+          completion_email_sent_at: string | null
           created_at: string | null
           email: string | null
           id: string
@@ -118,6 +119,7 @@ export type Database = {
         }
         Insert: {
           body: string
+          completion_email_sent_at?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -131,6 +133,7 @@ export type Database = {
         }
         Update: {
           body?: string
+          completion_email_sent_at?: string | null
           created_at?: string | null
           email?: string | null
           id?: string

@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getSupa, getUserSupa } from "./supa.server";
 import { STATUSES, type Project, type Status, type Ticket } from "./types";
+import { sendTicketEmail } from "./email.server";
+import { completionRecipient } from "./email-notifications";
 
 const BUCKET = "ticket-images";
 import { MAX_FILES, MAX_IMAGE_BYTES, MAX_PDF_BYTES } from "./upload";
@@ -109,6 +111,7 @@ export const createTicket = createServerFn({ method: "POST" })
         email: z.string().email().optional(),
         files: z.array(fileSchema).max(MAX_FILES),
       })
+       .refine((d) => !d.notify || !!d.email, { message: "E-post krävs för färdigmeddelande", path: ["email"] })
       .parse(d),
   )
   .handler(async ({ data }) => {
@@ -138,7 +141,7 @@ export const createTicket = createServerFn({ method: "POST" })
       }
     }
 
-    const { error } = await supa.rpc("portal_create_ticket", {
+    const { data: ticketId, error } = await supa.rpc("portal_create_ticket", {
       _code: data.projectCode,
       _sub_id: data.subId,
       _title: data.title,
@@ -149,7 +152,20 @@ export const createTicket = createServerFn({ method: "POST" })
       _urgent: data.urgent,
     } as never);
     if (error) throw new Error("Kunde inte spara ärendet");
-    return { ok: true, images: urls };
+    let emailWarning = "";
+    try {
+      if (typeof ticketId !== "string") throw new Error("Ärende-id saknas");
+      const project = proj as Row;
+      const sub = subs.find((s) => s["id"] === data.subId);
+      await sendTicketEmail("new", {
+        id: ticketId, title: data.title, body: data.body,
+        project: str(project["name"]), subProject: str(sub?.["name"]),
+        urgent: data.urgent, images: urls, email: data.email,
+      }, { apiKey: process.env["LOVABLE_API_KEY"], connectionKey: process.env["RESEND_API_KEY"] });
+    } catch {
+      emailWarning = "Ärendet är sparat, men mejlaviseringen till admin kunde inte skickas.";
+    }
+    return { ok: true, images: urls, emailWarning };
   });
 
 export const setTicketStatus = createServerFn({ method: "POST" })
@@ -157,9 +173,30 @@ export const setTicketStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     if (!statusOk(data.status)) throw new Error("Okänd status");
     const supa = await adminClient(data.token);
+    const { data: previous, error: readError } = await supa.from("tickets").select("*").eq("id", data.id).single();
+    if (readError || !previous) throw new Error("Ärendet finns inte");
     const { error } = await supa.from("tickets").update({ status: data.status }).eq("id", data.id);
     if (error) throw new Error("Kunde inte uppdatera status");
-    return { ok: true };
+    const recipient = completionRecipient({ ...previous, status: data.status });
+    let emailWarning = "";
+    if (recipient) {
+      try {
+        const { data: sub, error: subError } = await supa.from("sub_projects").select("name, project_id").eq("id", previous.sub_project_id).single();
+        if (subError || !sub) throw new Error("Underprojektet finns inte");
+        const { data: project, error: projectError } = await supa.from("projects").select("name").eq("id", sub.project_id).single();
+        if (projectError || !project) throw new Error("Projektet finns inte");
+        await sendTicketEmail("completed", {
+          id: data.id, title: previous.title, body: previous.body,
+          project: project.name, subProject: sub.name,
+          urgent: previous.urgent, images: previous.images ?? [],
+        }, { apiKey: process.env["LOVABLE_API_KEY"], connectionKey: process.env["RESEND_API_KEY"] }, recipient);
+        const { error: markError } = await supa.from("tickets").update({ completion_email_sent_at: new Date().toISOString() }).eq("id", data.id);
+        if (markError) throw new Error("Kunde inte spara mejlkvittot");
+      } catch {
+        emailWarning = "Statusen är sparad, men kundmejlet kunde inte bekräftas. Tryck Färdigt igen för att försöka igen.";
+      }
+    }
+    return { ok: true, emailWarning };
   });
 
 export const setSubArchived = createServerFn({ method: "POST" })

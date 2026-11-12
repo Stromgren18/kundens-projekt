@@ -61,7 +61,7 @@ function Index() {
 }
 
 function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: string[]; onLeave: () => void }) {
-  const { addTicket } = useDemo();
+  const { addTicket, error } = useDemo();
   const subs = project.subs.filter((s) => subIds.includes(s.id));
   const [subId, setSubId] = useState(subs[0]?.id ?? "");
   const sub = subs.find((s) => s.id === subId) ?? subs[0];
@@ -162,6 +162,7 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
               </div>
             )}
             {submitErr && <p className="text-sm text-destructive">{submitErr}</p>}
+            {error && <p role="status" className="text-sm text-destructive">{error}</p>}
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" className="h-4 w-4 accent-primary" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
               🚩 Akut / brådskande
