@@ -15,8 +15,8 @@ export const adminSignIn = createServerFn({ method: "POST" })
 export const adminSetPassword = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ accessToken: z.string().min(10), refresh: z.string().optional(), password: z.string().min(8) }).parse(d))
   .handler(async ({ data }) => {
-    const url = process.env["SUPA_URL"];
-    const key = process.env["SUPA_KEY"];
+    const url = process.env["SUPA_URL"] || process.env["SUPABASE_URL"];
+    const key = process.env["SUPA_KEY"] || process.env["SUPABASE_PUBLISHABLE_KEY"];
     if (!url || !key) throw new Error("Supabase är inte kopplat");
     const r = await fetch(`${url}/auth/v1/user`, {
       method: "PUT",
