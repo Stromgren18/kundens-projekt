@@ -11,6 +11,8 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { DemoProvider } from "@/lib/demo-store";
+import { CookieConsent } from "@/components/CookieConsent";
+import consentDefaults from "@/lib/consent-defaults.js?raw";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -76,6 +78,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
+    scripts: [{ children: consentDefaults }],
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -127,6 +130,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <DemoProvider>
         <Outlet />
+        <CookieConsent />
       </DemoProvider>
     </QueryClientProvider>
   );
