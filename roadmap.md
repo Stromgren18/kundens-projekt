@@ -1,5 +1,6 @@
 # Automatisk mejlavisering
 ## Integritet och cookie-banner
+- [x] Stäng av klickspårning, ersätt bannern med integritetslänken och verifiera sidan.
 - [x] Lägg till gemensam bottenbanner, sparade analysval och återöppningsbara inställningar.
 - [x] Lägg till integritetssida med faktisk lagring och leverantörer.
 - [x] Verifiera banner och val i webbläsaren; acceptera, neka och återöppna fungerar efter omladdning på dator och mobil.
