@@ -138,8 +138,8 @@ function Admin() {
           <Overview onOpen={(code, subId) => open(code, subId)} />
 
           <div className="mt-12 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="text-2xl">Projekt</h2>
-            <button onClick={() => setNewOpen(!newOpen)} className={btn}>{newOpen ? "Avbryt" : "+ Nytt projekt"}</button>
+            <h2 className="text-2xl">Kunder</h2>
+            <button onClick={() => setNewOpen(!newOpen)} className={btn}>{newOpen ? "Avbryt" : "+ Ny kund"}</button>
           </div>
           {newOpen && (
             <form className="mt-3 flex flex-wrap gap-2 rounded-2xl bg-card p-4 ring-1 ring-border" onSubmit={(e) => {
@@ -147,14 +147,14 @@ function Admin() {
               if (!np.name.trim() || !check(np.code)) return;
               addProject(np.name, np.code)
                 .then(() => { setNp({ name: "", code: "" }); setNewOpen(false); open(np.code.trim().toUpperCase()); })
-                .catch((e) => setErr(e instanceof Error ? e.message : "Kunde inte skapa projektet"));
+                 .catch((e) => setErr(e instanceof Error ? e.message : "Kunde inte skapa kunden"));
             }}>
-              <input autoFocus value={np.name} onChange={(e) => setNp({ ...np, name: e.target.value })} placeholder="Projektnamn" className={inp} />
+              <input autoFocus value={np.name} onChange={(e) => setNp({ ...np, name: e.target.value })} placeholder="Kundnamn" className={inp} />
               <input value={np.code} onChange={(e) => setNp({ ...np, code: e.target.value })} placeholder="HUVUDKOD" className={`${inp} uppercase`} />
               <button className={btn}>Skapa</button>
             </form>
           )}
-          {projects.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Inga projekt ännu – skapa ditt första ovan.</p>}
+          {projects.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Inga kunder ännu – lägg till din första ovan.</p>}
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {projects.filter((p) => showArchivedP || !p.archived).map((p) => {
               const active = { ...p, subs: p.subs.filter((s) => !s.archived) };
