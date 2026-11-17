@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useDemo, STATUSES, type Status } from "@/lib/demo-store";
 import { statusStyle } from "@/routes/index";
+import { daysSince, ageLabel } from "@/lib/dates";
 
 const inp = "rounded-xl border-2 border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary";
 type SortKey = "kund" | "projekt" | "status" | "datum";
@@ -12,7 +13,6 @@ export function Overview({ onOpen }: { onOpen: (code: string, subId: string) => 
   const [q, setQ] = useState("");
   const [hideDone, setHideDone] = useState(true);
   const [statusF, setStatusF] = useState<"Alla" | Status>("Alla");
-  const today = new Date("2026-11-03").getTime();
 
   const rows = projects.filter((p) => !p.archived).flatMap((p) => p.subs.filter((s) => !s.archived).flatMap((s) => s.tickets.map((t) => ({ p, s, t }))))
     .filter(({ t }) => !(hideDone && t.status === "Färdigt"))
@@ -52,7 +52,7 @@ export function Overview({ onOpen }: { onOpen: (code: string, subId: string) => 
           <tbody>
             {rows.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">Inget att göra just nu 🎉</td></tr>}
             {rows.map(({ p, s, t }) => {
-              const days = Math.round((today - new Date(t.createdAt).getTime()) / 864e5);
+              const days = daysSince(t.createdAt);
               return (
                 <tr key={t.id} className={`border-t border-border ${t.urgent && t.status !== "Färdigt" ? "bg-primary/10" : ""}`}>
                   <td className="px-3 py-2 font-semibold">{p.client}</td>
@@ -63,7 +63,7 @@ export function Overview({ onOpen }: { onOpen: (code: string, subId: string) => 
                       {STATUSES.map((st) => <option key={st}>{st}</option>)}
                     </select>
                   </td>
-                  <td className={`px-3 py-2 whitespace-nowrap ${days > 7 && t.status !== "Färdigt" ? "font-bold text-primary" : "text-muted-foreground"}`}>{days} dagar sedan</td>
+                  <td className={`px-3 py-2 whitespace-nowrap ${days > 7 && t.status !== "Färdigt" ? "font-bold text-primary" : "text-muted-foreground"}`}>{ageLabel(days)}</td>
                   <td className="px-3 py-2"><button onClick={() => onOpen(p.code, s.id)} className="text-xs underline">Öppna</button></td>
                 </tr>
               );
