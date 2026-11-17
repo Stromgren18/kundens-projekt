@@ -306,8 +306,11 @@ export const addSubCode = createServerFn({ method: "POST" })
     const supa = await adminClient(data.token);
     const code = data.code.trim().toUpperCase();
     if (await codeInUse(supa, code)) throw new Error(`Koden ${code} används redan`);
+    // Replace: the new code takes over, all previous codes for this sub stop working.
     const { error } = await supa.from("sub_project_codes").insert({ sub_project_id: data.subId, code });
-    if (error) throw new Error("Kunde inte lägga till koden");
+    if (error) throw new Error("Kunde inte byta koden");
+    const { error: de } = await supa.from("sub_project_codes").delete().eq("sub_project_id", data.subId).neq("code", code);
+    if (de) throw new Error("Kunde inte ta bort den gamla koden");
     return { ok: true };
   });
 

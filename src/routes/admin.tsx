@@ -240,10 +240,11 @@ function Admin() {
                     e.preventDefault();
                     const c = nc[s.id] ?? "";
                     if (!check(c)) return;
-                    addSubCode(project.code, s.id, c).then(() => setNc({ ...nc, [s.id]: "" })).catch((e) => setErr(e instanceof Error ? e.message : "Kunde inte lägga till koden"));
+                    if (!confirm(`Byt kod för "${s.name}" till ${c.trim().toUpperCase()}? Den gamla koden slutar fungera direkt.`)) return;
+                    addSubCode(project.code, s.id, c).then(() => setNc({ ...nc, [s.id]: "" })).catch((e) => setErr(e instanceof Error ? e.message : "Kunde inte byta koden"));
                   }}>
                     <input value={nc[s.id] ?? ""} onChange={(e) => setNc({ ...nc, [s.id]: e.target.value })} placeholder="NY KOD" className={`${inp} w-28 py-1 uppercase`} />
-                    <button className={small}>+ Kod</button>
+                    <button className={small}>✏️ Byt kod</button>
                   </form>
                   <button type="button" onClick={() => {
                     if (!s.archived && !confirm(`Arkivera "${s.name}"? Kunden ser det inte längre, men historiken sparas.`)) return;
