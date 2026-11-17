@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useDemo, unreadCount, allTickets, codeTaken, STATUSES, type Status } from "@/lib/demo-store";
-import { TicketList, statusStyle } from "./index";
+import { TicketList, NewTicketForm } from "./index";
 import { Overview } from "@/components/AdminOverview";
 import { useServerFn } from "@tanstack/react-start";
 import { adminSignIn, adminSetPassword, adminRefresh } from "@/lib/auth.functions";
@@ -79,6 +79,7 @@ function Admin() {
   const [nc, setNc] = useState<Record<string, string>>({});
   const [newOpen, setNewOpen] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [newTicket, setNewTicket] = useState(false);
   const [err, setErr] = useState("");
   const [restoring, setRestoring] = useState(true);
   const refreshFn = useServerFn(adminRefresh);
@@ -93,7 +94,7 @@ function Admin() {
   }, []);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [sel]);
   const project = projects.find((p) => p.code === sel);
-  const open = (code: string, subId = "all") => { setSel(code); setSubSel(subId); setFilter("Alla"); setSettings(false); setErr(""); };
+  const open = (code: string, subId = "all") => { setSel(code); setSubSel(subId); setFilter("Alla"); setSettings(false); setNewTicket(false); setErr(""); };
 
   const check = (c: string) => {
     if (!c.trim()) return false;
@@ -269,6 +270,16 @@ function Admin() {
           {sub?.archived && tab(sub.id, `${sub.name} (arkiverad)`, 0)}
         </div>
         {activeSubs.length === 0 && <p className="mt-4 text-sm text-muted-foreground">Inga underprojekt ännu – lägg till under ⚙️ Projektinställningar.</p>}
+        {activeSubs.length > 0 && (
+          <div className="mt-4">
+            <button onClick={() => setNewTicket(!newTicket)} className={btn}>{newTicket ? "Avbryt" : "+ Nytt ärende"}</button>
+            {newTicket && (
+              <div className="mt-3">
+                <NewTicketForm key={subSel} admin projectCode={project.code} subs={activeSubs.map((s) => ({ id: s.id, name: s.name }))} defaultSubId={sub?.id} onDone={() => setNewTicket(false)} />
+              </div>
+            )}
+          </div>
+        )}
         <div className="mt-4 flex flex-wrap gap-1.5">
           {(["Alla", ...STATUSES] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)} className={`rounded-full px-3 py-0.5 text-xs font-semibold ring-1 ring-border ${filter === f ? "bg-primary text-primary-foreground" : "bg-card"}`}>{f}</button>

@@ -26,6 +26,7 @@ export type NewTicket = {
   notify: boolean;
   urgent: boolean;
   email?: string | undefined;
+  status?: Status | undefined;
 };
 
 type Ctx = {
@@ -123,7 +124,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       const files = await Promise.all(
         t.files.map(async (f) => ({ name: f.name, dataUrl: await toDataUrl(f) })),
       );
-      const login = custCode ?? code;
+      const login = token ? code : (custCode ?? code);
       const result = await runTicket({
         data: {
           projectCode: login,
@@ -134,6 +135,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
           urgent: t.urgent,
           email: t.notify ? t.email : undefined,
           files,
+          ...(token ? { token, status: t.status } : {}),
         },
       });
       await refresh();

@@ -120,16 +120,27 @@ export const createTicket = createServerFn({ method: "POST" })
         urgent: z.boolean().default(false),
         email: z.string().email().optional(),
         files: z.array(fileSchema).max(MAX_FILES),
+        token: token.optional(),
+        status: z.enum(STATUSES).optional(),
       })
        .refine((d) => !d.notify || !!d.email, { message: "E-post krävs för färdigmeddelande", path: ["email"] })
       .parse(d),
   )
   .handler(async ({ data }) => {
     const supa = getSupa();
-    // Verify the code grants access to this sub-project before any upload.
-    const { data: proj } = await supa.rpc("portal_load", { _code: data.projectCode });
-    const subs = proj && Array.isArray((proj as Row)["subs"]) ? ((proj as Row)["subs"] as Row[]) : [];
-    if (!subs.some((s) => s["id"] === data.subId)) throw new Error("Ogiltig kod");
+    const admin = data.token ? await adminClient(data.token) : null;
+    let proj: unknown = null;
+    let subs: Row[] = [];
+    if (admin) {
+      // Admin: the sub-project must exist; no customer code needed.
+      const { data: sb } = await admin.from("sub_projects").select("id").eq("id", data.subId).maybeSingle();
+      if (!sb) throw new Error("Underprojektet finns inte");
+    } else {
+      // Verify the code grants access to this sub-project before any upload.
+      proj = (await supa.rpc("portal_load", { _code: data.projectCode })).data;
+      subs = proj && Array.isArray((proj as Row)["subs"]) ? ((proj as Row)["subs"] as Row[]) : [];
+      if (!subs.some((s) => s["id"] === data.subId)) throw new Error("Ogiltig kod");
+    }
 
     const urls: string[] = [];
     if (data.files.length) {
@@ -149,6 +160,16 @@ export const createTicket = createServerFn({ method: "POST" })
         if (error) throw new Error(`Kunde inte ladda upp ${f.name}`);
         urls.push(supabaseAdmin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl);
       }
+    }
+
+    if (admin) {
+      const { error: insErr } = await admin.from("tickets").insert({
+        sub_project_id: data.subId, title: data.title, body: data.body, images: urls,
+        notify: data.notify, email: data.notify ? (data.email ?? null) : null,
+        urgent: data.urgent, status: data.status ?? "Bekräftat",
+      } as never);
+      if (insErr) throw new Error("Kunde inte spara ärendet");
+      return { ok: true, images: urls, emailWarning: "" };
     }
 
     const { data: ticketId, error } = await supa.rpc("portal_create_ticket", {

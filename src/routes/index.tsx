@@ -61,20 +61,9 @@ function Index() {
 }
 
 function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: string[]; onLeave: () => void }) {
-  const { addTicket, error } = useDemo();
   const subs = project.subs.filter((s) => subIds.includes(s.id));
   const [subId, setSubId] = useState(subs[0]?.id ?? "");
   const sub = subs.find((s) => s.id === subId) ?? subs[0];
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<Preview[]>([]);
-  const [compressing, setCompressing] = useState(false);
-  const [submitErr, setSubmitErr] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [notify, setNotify] = useState(false);
-  const [urgent, setUrgent] = useState(false);
-  const [email, setEmail] = useState("");
   const tickets = sub?.tickets ?? [];
   const open = tickets.filter((t) => t.status !== "Färdigt").length;
 
@@ -104,6 +93,33 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
 
       {sub && (
         <main className="mx-auto -mt-6 max-w-4xl px-6 pb-16">
+          <NewTicketForm key={sub.id} projectCode={project.code} subs={[sub]} />
+
+          <h2 className="mt-12 text-2xl">Dina ärenden</h2>
+          <TicketList tickets={tickets} />
+        </main>
+      )}
+    </div>
+  );
+}
+
+export function NewTicketForm({ projectCode, subs, defaultSubId, admin, onDone }: { projectCode: string; subs: { id: string; name: string }[]; defaultSubId?: string | undefined; admin?: boolean; onDone?: () => void }) {
+  const { addTicket, error } = useDemo();
+  const [pick, setPick] = useState(defaultSubId ?? subs[0]?.id ?? "");
+  const sub = subs.find((s) => s.id === pick) ?? subs[0];
+  const [status, setStatus] = useState<Status>("Bekräftat");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<Preview[]>([]);
+  const [compressing, setCompressing] = useState(false);
+  const [submitErr, setSubmitErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notify, setNotify] = useState(false);
+  const [urgent, setUrgent] = useState(false);
+  const [email, setEmail] = useState("");
+  if (!sub) return null;
+  return (
           <form
             className="space-y-3 rounded-3xl border-t-4 border-primary bg-card p-6"
             style={{ boxShadow: "var(--shadow-pop)" }}
@@ -112,15 +128,27 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
               if (!title.trim() || !body.trim() || (notify && !email.includes("@"))) return;
               setBusy(true);
               setSubmitErr("");
-              addTicket(project.code, sub.id, { title, body, files, notify, urgent, email: notify ? email : undefined })
+              addTicket(projectCode, sub.id, { title, body, files, notify, urgent, email: notify ? email : undefined, ...(admin ? { status } : {}) })
                 .then(() => {
-                  setTitle(""); setBody(""); setFiles([]); setPreviews([]); setNotify(false); setUrgent(false); setEmail("");
+                  setTitle(""); setBody(""); setFiles([]); setPreviews([]); setNotify(false); setUrgent(false); setEmail(""); onDone?.();
                 })
                 .catch((err) => setSubmitErr(err instanceof Error ? err.message : "Något gick fel – försök igen."))
                 .finally(() => setBusy(false));
             }}
           >
-            <h2 className="text-2xl">Nytt ärende i {sub.name}</h2>
+            <h2 className="text-2xl">Nytt ärende{subs.length > 1 ? "" : ` i ${sub.name}`}</h2>
+            {admin && (
+              <div className="flex flex-wrap gap-2">
+                {subs.length > 1 && (
+                  <select value={sub.id} onChange={(e) => setPick(e.target.value)} className={field} style={{ width: "auto" }} aria-label="Underprojekt">
+                    {subs.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                )}
+                <select value={status} onChange={(e) => setStatus(e.target.value as Status)} className={field} style={{ width: "auto" }} aria-label="Status">
+                  {STATUSES.map((st) => <option key={st} value={st}>{st}</option>)}
+                </select>
+              </div>
+            )}
             <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Rubrik" className={field} />
             <textarea required value={body} onChange={(e) => setBody(e.target.value)} placeholder="Beskriv vad du vill ha gjort" rows={4} className={field} />
             <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-accent/40 px-4 py-6 text-sm text-accent-foreground transition hover:bg-accent">
@@ -169,17 +197,11 @@ function ProjectView({ project, subIds, onLeave }: { project: Project; subIds: s
             </label>
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" className="h-4 w-4 accent-primary" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
-              Meddela mig när ärendet är utfört
+              {admin ? "Meddela kunden när ärendet är utfört" : "Meddela mig när ärendet är utfört"}
             </label>
-            {notify && <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Din e-post" className={`${field} animate-in fade-in slide-in-from-top-2`} />}
+            {notify && <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={admin ? "Kundens e-post" : "Din e-post"} className={`${field} animate-in fade-in slide-in-from-top-2`} />}
             <button disabled={busy} className="rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-60">{busy ? "Skickar…" : "Skicka ärende"}</button>
           </form>
-
-          <h2 className="mt-12 text-2xl">Dina ärenden</h2>
-          <TicketList tickets={tickets} />
-        </main>
-      )}
-    </div>
   );
 }
 
