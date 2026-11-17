@@ -4,10 +4,11 @@ type Credentials = { apiKey: string | undefined; connectionKey: string | undefin
 
 /** Called only from the feature's server handler, never from an email-send endpoint. */
 export async function sendTicketEmail(
-  kind: "new" | "completed",
-  ticket: TicketEmail,
+  kind: "new" | "completed" | "update",
+  ticket: TicketEmail & { message?: string; status?: string },
   credentials: Credentials,
   recipient = EMAIL_ADMIN,
+  idempotencyKey = `ticket-${ticket.id}-${kind}`,
 ) {
   if (!credentials.apiKey || !credentials.connectionKey) throw new Error("Mejltjänsten är inte konfigurerad");
   const response = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
@@ -16,7 +17,7 @@ export async function sendTicketEmail(
       "Content-Type": "application/json",
       Authorization: `Bearer ${credentials.apiKey}`,
       "X-Connection-Api-Key": credentials.connectionKey,
-      "Idempotency-Key": `ticket-${ticket.id}-${kind}`,
+      "Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify({ from: EMAIL_FROM, to: [recipient], reply_to: EMAIL_ADMIN, ...ticketEmail(kind, ticket) }),
   });

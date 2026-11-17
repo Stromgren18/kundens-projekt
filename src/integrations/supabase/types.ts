@@ -102,6 +102,44 @@ export type Database = {
           },
         ]
       }
+      ticket_notes: {
+        Row: {
+          body: string
+          created_at: string
+          emailed: boolean
+          id: string
+          internal: boolean
+          status: string | null
+          ticket_id: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          emailed?: boolean
+          id?: string
+          internal?: boolean
+          status?: string | null
+          ticket_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          emailed?: boolean
+          id?: string
+          internal?: boolean
+          status?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_notes_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           body: string

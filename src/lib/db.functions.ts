@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getSupa, getUserSupa } from "./supa.server";
-import { STATUSES, type Project, type Status, type Ticket } from "./types";
+import { STATUSES, type Note, type Project, type Status, type Ticket } from "./types";
 import { sendTicketEmail } from "./email.server";
 import { completionRecipient } from "./email-notifications";
 
@@ -15,8 +15,17 @@ const str = (v: unknown, fb = "") => (typeof v === "string" ? v : fb);
 
 type Row = Record<string, unknown>;
 
-function toTicket(t: Row): Ticket {
+function toNote(n: Row): Note {
   return {
+    id: str(n["id"]), body: str(n["body"]), internal: n["internal"] === true,
+    status: statusOk(n["status"]) ? n["status"] : undefined, emailed: n["emailed"] === true,
+    createdAt: str(n["created_at"]),
+  };
+}
+
+function toTicket(t: Row, notes: Row[] = Array.isArray(t["notes"]) ? (t["notes"] as Row[]) : []): Ticket {
+  return {
+    notes: notes.map(toNote),
     id: str(t["id"]),
     title: str(t["title"]),
     body: str(t["body"]),
@@ -59,7 +68,7 @@ export const loadByCode = createServerFn({ method: "POST" })
         id: str(s["id"]),
         name: str(s["name"]),
         codes: [],
-        tickets: (Array.isArray(s["tickets"]) ? (s["tickets"] as Row[]) : []).map(toTicket),
+        tickets: (Array.isArray(s["tickets"]) ? (s["tickets"] as Row[]) : []).map((tk) => toTicket(tk)),
       })),
     };
   });
@@ -75,7 +84,8 @@ export const loadProjects = createServerFn({ method: "POST" })
       supa.from("sub_project_codes").select("*"),
       supa.from("tickets").select("*").order("created_at", { ascending: false }),
     ]);
-    if (p.error || s.error || c.error || t.error) throw new Error("Kunde inte läsa projekt");
+    const n = (await supa.from("ticket_notes" as never).select("*").order("created_at", { ascending: true })) as unknown as { data: Row[] | null; error: unknown };
+    if (p.error || s.error || c.error || t.error || n.error) throw new Error("Kunde inte läsa projekt");
     const subs = (s.data ?? []) as Row[];
     const codes = (c.data ?? []) as Row[];
     const tickets = (t.data ?? []) as Row[];
@@ -91,7 +101,7 @@ export const loadProjects = createServerFn({ method: "POST" })
           name: str(sb["name"]),
           archived: sb["archived"] === true,
           codes: codes.filter((cd) => cd["sub_project_id"] === sb["id"]).map((cd) => str(cd["code"])),
-          tickets: tickets.filter((tk) => tk["sub_project_id"] === sb["id"]).map(toTicket),
+          tickets: tickets.filter((tk) => tk["sub_project_id"] === sb["id"]).map((tk) => toTicket(tk, (n.data ?? []).filter((x) => x["ticket_id"] === tk["id"]))),
         })),
     }));
   });
@@ -330,4 +340,51 @@ export const setTicketTime = createServerFn({ method: "POST" })
     const { error } = await supa.from("tickets").update({ time_spent: v || null } as never).eq("id", data.id);
     if (error) throw new Error("Kunde inte spara tiden");
     return { ok: true };
+  });
+
+/** Admin: saves a history entry. Customer-visible entries may change status and email the customer. */
+export const sendTicketUpdate = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ token, id: z.string().uuid(), status: z.string(), message: z.string().max(5000), internal: z.boolean() }).parse(d))
+  .handler(async ({ data }) => {
+    if (!statusOk(data.status)) throw new Error("Okänd status");
+    const msg = data.message.trim();
+    const supa = await adminClient(data.token);
+    const { data: prev, error: readError } = await supa.from("tickets").select("*").eq("id", data.id).single();
+    if (readError || !prev) throw new Error("Ärendet finns inte");
+    const notes = supa.from("ticket_notes" as never);
+    if (data.internal) {
+      if (!msg) throw new Error("Skriv en anteckning först");
+      const { error } = await notes.insert({ ticket_id: data.id, body: msg, internal: true } as never);
+      if (error) throw new Error("Kunde inte spara anteckningen");
+      return { ok: true, emailWarning: "" };
+    }
+    const changed = prev.status !== data.status;
+    if (!msg && !changed) throw new Error("Ändra status eller skriv ett meddelande först");
+    if (changed) {
+      const { error } = await supa.from("tickets").update({ status: data.status }).eq("id", data.id);
+      if (error) throw new Error("Kunde inte uppdatera status");
+    }
+    const { data: note, error: noteError } = await notes.insert({ ticket_id: data.id, body: msg, internal: false, status: data.status } as never).select("id").single();
+    if (noteError || !note) throw new Error("Kunde inte spara meddelandet");
+    const noteId = str((note as Row)["id"]);
+    const parsed = z.string().email().safeParse(prev.email);
+    const recipient = prev.notify && parsed.success ? parsed.data : null;
+    let emailWarning = "";
+    if (recipient) {
+      try {
+        const { data: sub } = await supa.from("sub_projects").select("name, project_id").eq("id", prev.sub_project_id).single();
+        if (!sub) throw new Error("Underprojektet finns inte");
+        const { data: project } = await supa.from("projects").select("name").eq("id", sub.project_id).single();
+        if (!project) throw new Error("Projektet finns inte");
+        await sendTicketEmail("update", {
+          id: data.id, title: prev.title, body: prev.body, project: project.name, subProject: sub.name,
+          urgent: prev.urgent, images: prev.images ?? [], message: msg, status: data.status,
+        }, { apiKey: process.env["LOVABLE_API_KEY"], connectionKey: process.env["RESEND_API_KEY"] }, recipient, `ticket-note-${noteId}`);
+        await notes.update({ emailed: true } as never).eq("id", noteId);
+        if (data.status === "Färdigt") await supa.from("tickets").update({ completion_email_sent_at: new Date().toISOString() }).eq("id", data.id);
+      } catch {
+        emailWarning = "Uppdateringen är sparad, men mejlet till kunden kunde inte skickas.";
+      }
+    }
+    return { ok: true, emailWarning };
   });

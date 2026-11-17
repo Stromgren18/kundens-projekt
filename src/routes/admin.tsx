@@ -68,7 +68,7 @@ function AdminLogin({ onIn }: { onIn: (token: string, refresh?: string | null) =
 }
 
 function Admin() {
-  const { projects, setStatus, addProject, addSub, addSubCode, archiveSub, moveTicket, renameProject, archiveProject, removeProject, setTime, isAdmin, setAdminToken, error } = useDemo();
+  const { projects, setStatus, addProject, addSub, addSubCode, archiveSub, moveTicket, renameProject, archiveProject, removeProject, setTime, sendUpdate, isAdmin, setAdminToken, error } = useDemo();
   const [showArchived, setShowArchived] = useState(false);
   const [showArchivedP, setShowArchivedP] = useState(false);
   const [sel, setSel] = useState("");
@@ -279,6 +279,7 @@ function Admin() {
           onStatus={(id, s) => { const sb = subOf(id); if (sb) setStatus(project.code, sb.id, id, s); }}
           moveTargets={activeSubs.filter((s) => s.id !== sub?.id).map((s) => ({ id: s.id, name: s.name }))}
           onTime={setTime}
+          onSend={sendUpdate}
           onMove={(id, to) => moveTicket(id, to).catch((er) => setErr(er instanceof Error ? er.message : "Kunde inte flytta ärendet"))}
         />
       </div>

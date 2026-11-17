@@ -17,6 +17,7 @@ vi.mock("@/lib/db.functions", () => {
   const ago = (n: number) => iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - n));
   const ticket = (id: string, title: string, createdAt: string) => ({
     id,
+    notes: [],
     title,
     body: "",
     images: [],
@@ -52,6 +53,7 @@ vi.mock("@/lib/db.functions", () => {
     updateProject: noop,
     deleteProject: noop,
     setTicketTime: noop,
+    sendTicketUpdate: noop,
   };
 });
 

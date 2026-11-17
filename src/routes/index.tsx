@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDemo, STATUSES, type Project, type Status, type Ticket } from "@/lib/demo-store";
 import { MAX_FILES, checkFile, compressImage, fmtSize, isPdf, isPdfUrl } from "@/lib/upload";
 
@@ -205,7 +205,68 @@ function TimeNote({ t, onTime }: { t: Ticket; onTime: (id: string, v: string) =>
   );
 }
 
-export function TicketList({ tickets, onStatus, moveTargets, onMove, onTime }: {
+const fmt = (iso: string) => new Date(iso).toLocaleString("sv-SE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+function History({ t, admin }: { t: Ticket; admin: boolean }) {
+  const notes = t.notes.filter((n) => admin || !n.internal);
+  if (!notes.length) return null;
+  return (
+    <div className="mt-4 space-y-2 border-l-2 border-border pl-4">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Historik</p>
+      {notes.map((n) => (
+        <div key={n.id} className={`rounded-xl px-3 py-2 text-sm ${n.internal ? "border-2 border-dashed border-warning-foreground/40 bg-warning/30" : "bg-secondary/70"}`}>
+          <p className="text-xs text-muted-foreground">
+            {fmt(n.createdAt)} · {n.internal ? "🔒 Intern anteckning" : "Frilans Norr"}
+            {n.status && <span className={`ml-2 rounded-full px-2 py-0.5 font-semibold ${statusStyle[n.status].badge}`}>{n.status}</span>}
+            {admin && !n.internal && (n.emailed ? " · ✉️ mejlad" : " · ej mejlad")}
+          </p>
+          {n.body && <p className="mt-1 whitespace-pre-wrap">{n.body}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function UpdateBox({ t, onSend }: { t: Ticket; onSend: (id: string, s: Status, msg: string, internal: boolean) => Promise<string> }) {
+  const [st, setSt] = useState<Status>(t.status);
+  const [msg, setMsg] = useState("");
+  const [internal, setInternal] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState("");
+  useEffect(() => { setSt(t.status); }, [t.status]);
+  const changed = !internal && st !== t.status;
+  const canSend = !busy && (internal ? !!msg.trim() : changed || !!msg.trim());
+  return (
+    <form className="mt-4 space-y-2 rounded-xl bg-secondary/40 p-3" onSubmit={(e) => {
+      e.preventDefault(); if (!canSend) return; setBusy(true); setInfo("");
+      onSend(t.id, st, msg, internal)
+        .then((w) => { setMsg(""); setInfo(w || (internal ? "Anteckning sparad ✓" : t.notify ? "Skickat till kunden ✓" : "Sparat ✓ (kunden har inte angett e-post)")); })
+        .catch((er) => setInfo(er instanceof Error ? er.message : "Något gick fel"))
+        .finally(() => setBusy(false));
+    }}>
+      <div className="flex flex-wrap gap-1.5">
+        <button type="button" onClick={() => setInternal(false)} className={`rounded-full px-3 py-1 text-xs font-semibold ${!internal ? "bg-graphite text-graphite-foreground" : "bg-card ring-1 ring-border"}`}>💬 Till kunden</button>
+        <button type="button" onClick={() => setInternal(true)} className={`rounded-full px-3 py-1 text-xs font-semibold ${internal ? "bg-graphite text-graphite-foreground" : "bg-card ring-1 ring-border"}`}>🔒 Intern anteckning</button>
+      </div>
+      {!internal && (
+        <div className="flex flex-wrap gap-2">
+          {STATUSES.map((s) => (
+            <button type="button" key={s} onClick={() => setSt(s)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition hover:brightness-105 ${st === s ? statusStyle[s].badge + " ring-2 ring-offset-1 ring-foreground/20" : "bg-secondary text-secondary-foreground"}`}>{s}</button>
+          ))}
+        </div>
+      )}
+      <textarea value={msg} onChange={(e) => setMsg(e.target.value)} maxLength={5000} rows={2} placeholder={internal ? "Syns bara för admin…" : "Meddelande till kunden (valfritt)…"} className="w-full rounded-lg border-2 border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
+      <div className="flex flex-wrap items-center gap-2">
+        <button disabled={!canSend} className="rounded-xl bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50">{busy ? "Skickar…" : internal ? "Spara anteckning" : "Skicka"}</button>
+        {changed && <span className="text-xs text-muted-foreground">Status ändras till {st} när du skickar</span>}
+        {info && <span className="text-xs font-semibold">{info}</span>}
+      </div>
+    </form>
+  );
+}
+
+export function TicketList({ tickets, onStatus, moveTargets, onMove, onTime, onSend }: {
+  onSend?: (id: string, s: Status, msg: string, internal: boolean) => Promise<string>;
   onTime?: (id: string, v: string) => Promise<void>;
   tickets: Ticket[];
   onStatus?: (id: string, s: Status) => void;
@@ -226,15 +287,21 @@ export function TicketList({ tickets, onStatus, moveTargets, onMove, onTime }: {
           </div>
           <p className="mt-3 whitespace-pre-wrap">{t.body}</p>
           {t.images.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{t.images.map((s) => <a key={s} href={s} target="_blank" rel="noreferrer">{isPdfUrl(s) ? <span className="flex h-24 w-24 items-center justify-center rounded-lg bg-secondary text-sm font-semibold transition hover:scale-105">📄 PDF</span> : <img src={s} alt="" className="h-24 w-24 rounded-lg object-cover transition hover:scale-105" />}</a>)}</div>}
+          <History t={t} admin={!!onSend} />
           {onTime && <TimeNote t={t} onTime={onTime} />}
-          {onStatus && (
+          {onSend && <UpdateBox t={t} onSend={onSend} />}
+          {onStatus && !onSend && (
             <div className="mt-4 flex flex-wrap gap-2">
               {STATUSES.map((s) => (
                 <button key={s} onClick={() => onStatus(t.id, s)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition hover:brightness-105 ${t.status === s ? statusStyle[s].badge + " ring-2 ring-offset-1 ring-foreground/20" : "bg-secondary text-secondary-foreground"}`}>
                   {s}
                 </button>
               ))}
-              {onMove && moveTargets && moveTargets.length > 0 && (
+            </div>
+          )}
+          {onMove && moveTargets && moveTargets.length > 0 && (
+            <div className="mt-2 flex">
+              {(
                 <select value="" onChange={(e) => e.target.value && onMove(t.id, e.target.value)} aria-label="Flytta ärende" className="ml-auto rounded-xl border-2 border-input bg-background px-2 py-1 text-xs font-semibold">
                   <option value="">↪ Flytta till…</option>
                   {moveTargets.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}

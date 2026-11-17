@@ -30,7 +30,14 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[c] ?? c));
 
-export function ticketEmail(kind: "new" | "completed", ticket: TicketEmail) {
+export function ticketEmail(kind: "new" | "completed" | "update", ticket: TicketEmail & { message?: string; status?: string }) {
+  if (kind === "update") {
+    const msg = ticket.message?.trim() ?? "";
+    const heading = `Uppdatering: ${ticket.status ?? ""}`.trim();
+    const text = `${heading}\n\n${ticket.title}\nProjekt: ${ticket.project}\nUnderprojekt: ${ticket.subProject}\nStatus: ${ticket.status ?? ""}${msg ? `\n\nMeddelande från Frilans Norr:\n${msg}` : ""}\n\n${PORTAL_URL}`;
+    const html = `<html lang="sv"><body><h1>Frilans Norr</h1><h2>${escapeHtml(heading)}</h2><h3>${escapeHtml(ticket.title)}</h3><p>Projekt: ${escapeHtml(ticket.project)}<br>Underprojekt: ${escapeHtml(ticket.subProject)}<br>Status: <strong>${escapeHtml(ticket.status ?? "")}</strong></p>${msg ? `<p><strong>Meddelande från Frilans Norr:</strong><br>${escapeHtml(msg).replace(/\n/g, "<br>")}</p>` : ""}<p><a href="${PORTAL_URL}">Öppna projektportalen</a></p></body></html>`;
+    return { subject: `[${ticket.status ?? "Uppdatering"}] ${ticket.project} – ${ticket.title}`.replace(/[\r\n]/g, " "), text, html };
+  }
   const done = kind === "completed";
   const heading = done ? "Ditt ärende är färdigt" : `${ticket.urgent ? "🚩 AKUT – " : ""}Nytt kundärende`;
   const text = `${heading}\n\n${ticket.title}\nProjekt: ${ticket.project}\nUnderprojekt: ${ticket.subProject}\n\n${done ? "Vi har nu slutfört ditt ärende. Tack!" : ticket.body}${!done && ticket.email ? `\n\nKundens e-post: ${ticket.email}` : ""}${!done && ticket.images.length ? `\n\nBifogade filer: ${ticket.images.length}` : ""}\n\n${PORTAL_URL}${done ? "" : "/admin"}`;

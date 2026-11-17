@@ -1,7 +1,10 @@
 export const STATUSES = ["Ej läst", "Bekräftat", "Påbörjat", "Färdigt"] as const;
 export type Status = (typeof STATUSES)[number];
 
+export type Note = { id: string; body: string; internal: boolean; status?: Status | undefined; emailed: boolean; createdAt: string };
+
 export type Ticket = {
+  notes: Note[];
   id: string;
   title: string;
   body: string;

@@ -14,6 +14,7 @@ import {
   updateProject,
   deleteProject,
   setTicketTime,
+  sendTicketUpdate,
 } from "./db.functions";
 
 export * from "./types";
@@ -46,6 +47,7 @@ type Ctx = {
   archiveProject: (code: string, archived: boolean) => Promise<void>;
   removeProject: (code: string) => Promise<void>;
   setTime: (id: string, time: string) => Promise<void>;
+  sendUpdate: (id: string, status: Status, message: string, internal: boolean) => Promise<string>;
 };
 
 const C = createContext<Ctx | null>(null);
@@ -77,6 +79,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const runUpd = useServerFn(updateProject);
   const runDel = useServerFn(deleteProject);
   const runTime = useServerFn(setTicketTime);
+  const runUpdate = useServerFn(sendTicketUpdate);
 
   const refresh = async (tok = token, code = custCode) => {
     try {
@@ -173,6 +176,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       await runTime({ data: { token: need(), id, time } });
       await refresh();
     },
+    sendUpdate: async (id, status, message, internal) => {
+      const r = await runUpdate({ data: { token: need(), id, status, message, internal } });
+      await refresh();
+      return r.emailWarning;
+    },
     removeProject: async (code) => {
       await runDel({ data: { token: need(), code } });
       await refresh();
@@ -199,6 +207,7 @@ const FALLBACK: Ctx = {
   moveTicket: async () => {},
   renameProject: async () => {},
   setTime: async () => {},
+  sendUpdate: async () => "",
   archiveProject: async () => {},
   removeProject: async () => {},
 };
