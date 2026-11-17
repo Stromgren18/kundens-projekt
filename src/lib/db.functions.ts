@@ -325,6 +325,34 @@ export const updateProject = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Deletes sub-projects with their tickets, notes, codes and stored files. */
+async function purgeSubs(supa: Awaited<ReturnType<typeof adminClient>>, ids: string[]) {
+  if (!ids.length) return;
+  const { data: tks } = await supa.from("tickets").select("id, images").in("sub_project_id", ids);
+  const prefix = `/storage/v1/object/public/${BUCKET}/`;
+  const paths = (tks ?? []).flatMap((t) => (t.images ?? []) as string[])
+    .map((u) => { const i = u.indexOf(prefix); return i < 0 ? "" : decodeURIComponent(u.slice(i + prefix.length)); })
+    .filter(Boolean);
+  if (paths.length) {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.storage.from(BUCKET).remove(paths);
+  }
+  const tids = (tks ?? []).map((t) => t.id);
+  const n = tids.length ? await supa.from("ticket_notes").delete().in("ticket_id", tids) : { error: null };
+  const a = await supa.from("tickets").delete().in("sub_project_id", ids);
+  const b = await supa.from("sub_project_codes").delete().in("sub_project_id", ids);
+  const c = await supa.from("sub_projects").delete().in("id", ids);
+  if (n.error || a.error || b.error || c.error) throw new Error("Kunde inte ta bort underprojektets innehåll");
+}
+
+export const deleteSub = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ token, subId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const supa = await adminClient(data.token);
+    await purgeSubs(supa, [data.subId]);
+    return { ok: true };
+  });
+
 export const deleteProject = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ token, code: z.string().min(1) }).parse(d))
   .handler(async ({ data }) => {
@@ -332,22 +360,7 @@ export const deleteProject = createServerFn({ method: "POST" })
     const { data: proj } = await supa.from("projects").select("id").eq("code", data.code).maybeSingle();
     if (!proj) throw new Error("Projektet finns inte");
     const { data: subs } = await supa.from("sub_projects").select("id").eq("project_id", proj.id);
-    const ids = (subs ?? []).map((s) => s.id);
-    if (ids.length) {
-      const { data: tks } = await supa.from("tickets").select("images").in("sub_project_id", ids);
-      const prefix = `/storage/v1/object/public/${BUCKET}/`;
-      const paths = (tks ?? []).flatMap((t) => (t.images ?? []) as string[])
-        .map((u) => { const i = u.indexOf(prefix); return i < 0 ? "" : decodeURIComponent(u.slice(i + prefix.length)); })
-        .filter(Boolean);
-      if (paths.length) {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        await supabaseAdmin.storage.from(BUCKET).remove(paths);
-      }
-      const a = await supa.from("tickets").delete().in("sub_project_id", ids);
-      const b = await supa.from("sub_project_codes").delete().in("sub_project_id", ids);
-      const c = await supa.from("sub_projects").delete().in("id", ids);
-      if (a.error || b.error || c.error) throw new Error("Kunde inte ta bort projektets innehåll");
-    }
+    await purgeSubs(supa, (subs ?? []).map((s) => s.id));
     const { error } = await supa.from("projects").delete().eq("id", proj.id);
     if (error) throw new Error("Kunde inte ta bort projektet");
     return { ok: true };

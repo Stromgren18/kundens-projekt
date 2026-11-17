@@ -13,6 +13,7 @@ import {
   moveTicket as moveTicketSrv,
   updateProject,
   deleteProject,
+  deleteSub,
   setTicketTime,
   sendTicketUpdate,
 } from "./db.functions";
@@ -47,6 +48,7 @@ type Ctx = {
   renameProject: (code: string, name: string) => Promise<void>;
   archiveProject: (code: string, archived: boolean) => Promise<void>;
   removeProject: (code: string) => Promise<void>;
+  removeSub: (subId: string) => Promise<void>;
   setTime: (id: string, time: string) => Promise<void>;
   sendUpdate: (id: string, status: Status, message: string, internal: boolean) => Promise<string>;
 };
@@ -79,6 +81,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const runMove = useServerFn(moveTicketSrv);
   const runUpd = useServerFn(updateProject);
   const runDel = useServerFn(deleteProject);
+  const runDelSub = useServerFn(deleteSub);
   const runTime = useServerFn(setTicketTime);
   const runUpdate = useServerFn(sendTicketUpdate);
 
@@ -183,6 +186,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       await refresh();
       return r.emailWarning;
     },
+    removeSub: async (subId) => {
+      await runDelSub({ data: { token: need(), subId } });
+      await refresh();
+    },
     removeProject: async (code) => {
       await runDel({ data: { token: need(), code } });
       await refresh();
@@ -212,6 +219,7 @@ const FALLBACK: Ctx = {
   sendUpdate: async () => "",
   archiveProject: async () => {},
   removeProject: async () => {},
+  removeSub: async () => {},
 };
 
 export function useDemo() {

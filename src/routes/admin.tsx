@@ -68,7 +68,7 @@ function AdminLogin({ onIn }: { onIn: (token: string, refresh?: string | null) =
 }
 
 function Admin() {
-  const { projects, setStatus, addProject, addSub, addSubCode, archiveSub, moveTicket, renameProject, archiveProject, removeProject, setTime, sendUpdate, isAdmin, setAdminToken, error } = useDemo();
+  const { projects, setStatus, addProject, addSub, addSubCode, archiveSub, moveTicket, renameProject, archiveProject, removeProject, removeSub, setTime, sendUpdate, isAdmin, setAdminToken, error } = useDemo();
   const [showArchived, setShowArchived] = useState(false);
   const [showArchivedP, setShowArchivedP] = useState(false);
   const [sel, setSel] = useState("");
@@ -249,6 +249,10 @@ function Admin() {
                     if (!s.archived && !confirm(`Arkivera "${s.name}"? Kunden ser det inte längre, men historiken sparas.`)) return;
                     archiveSub(s.id, !s.archived).then(() => { if (subSel === s.id) setSubSel("all"); }).catch((er) => setErr(er instanceof Error ? er.message : "Kunde inte arkivera"));
                   }} className={small}>{s.archived ? "↩ Återställ" : "🗄 Arkivera"}</button>
+                  <button type="button" onClick={() => {
+                    if (!confirm(`Ta bort "${s.name}" för alltid? ${s.tickets.length} ärenden, noteringar, koder och bilder raderas och kan inte återställas.`)) return;
+                    removeSub(s.id).then(() => { if (subSel === s.id) setSubSel("all"); }).catch((er) => setErr(er instanceof Error ? er.message : "Kunde inte ta bort underprojektet"));
+                  }} className="rounded-lg bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20">🗑 Ta bort</button>
                 </div>
               ))}
             </div>
